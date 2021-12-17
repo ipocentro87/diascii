@@ -1,0 +1,19 @@
+diascii {
+    position: relative;
+    display: block;
+    overflow: visible;
+}
+
+diasciis svg.DD_ARROW marker {
+    stroke: none;
+}
+
+diascii svg.DD_ARROW path {
+    fill: none;
+}
+
+diascii .DD_PLAIN_TEXT {
+    align-items: center;
+    text-align: center;
+    transform: translate(-50%, -50%);
+}

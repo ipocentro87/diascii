@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+  <head>
+	<meta charset="utf-8">
+	<title>Diascii</title>
+
+	<meta name="description" content="Transform ASCII art diagrams into customizable HTML">
+	<meta name="author" content="Marcello Ranone">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <link rel="stylesheet" href="diascii.css">
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Source+Sans+Pro:ital,wght@0,200;0,300;0,400;0,600;0,700;0,900;1,200;1,300;1,400;1,600;1,700;1,900&display=swap');
+      :root {
+          --color-blue-dianne:  #264653;
+          --color-jungle-green: #2a9d8f;
+          --color-rob-roy:      #e9c46a;
+          --color-sandy-brown:  #f4a261;
+          --color-burnt-sienna: #e76f51;
+      }
+
+      diascii {
+          font-family: Source Sans Pro;
+          margin:0 auto;
+      }
+
+      diascii .DD_ROUNDED_BOX {
+          background-color: var(--color-blue-dianne);
+          border-radius: 10px;
+      }
+
+      diascii .DD_PLAIN_TEXT {
+          font-size: 17px;
+          font-weight: 600;
+      }
+
+      diascii .DD_PLAIN_TEXT {
+          color: var(--color-jungle-green);
+      }
+
+      diascii #cntrl {
+          background-color: var(--color-jungle-green);
+      }
+
+      diascii #cntrl .DD_PLAIN_TEXT {
+          color: var(--color-blue-dianne);
+      }
+
+      diascii #cntrl #cont {
+          background-color: var(--color-sandy-brown);
+      }
+
+      diascii svg.DD_ARROW path {
+          stroke:var(--color-sandy-brown);
+          stroke-width: 7px;
+      }
+
+      diascii svg {
+          transform: translateY(2px);
+      }
+
+      diascii #mytest {
+          background-color:var(--color-sandy-brown);
+      }
+
+      diascii #mytest svg.DD_ARROW path {
+          stroke: var(--color-blue-dianne);
+          stroke-width: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <diascii>
+.-@id:cntrl------.     .-@id:agent------.
+|             req|---->|                |
+| Controller  ack|<----|     Agent      |
+|                |     |                |
+'----------------'     '----------------'
+         ^                     ^
+         '---------..----------'
+                   ||
+              .---------.
+              | Monitor |
+              '---------'
+    </diascii>
+
+    <diascii>
+.-@id:cntrl----.   ab  .---------.
+|              |a ---->|b a      |
+|  Controller  |.----->|  Agent  |
+|    x -> y    |<------|         |
+| .-@id:cont-. | .--.  '---------'
+| |  A       | | |  | .----> -->
+| |  B       | | '--' | prova .--.
+| '----------' |------'  <----'
+'--------------'           <------
+        .-@cl:pluto--.
+        |   testC    |
+        '------------'
+
+Arrow stress test:
+
+| ^  <-. .-. .-
+| |    | | | |
+'-'  --' v | '->
+
+^ |  --. .-. .->
+| |    | | | |
+'-'  <-' | v '-
+
+  ^  <-. .-. .
+  |    | |   |
+'-'    ' v   '->
+
+^      . .-. .->
+|      |   | |
+'-'  <-'   v '   end  .---.
+             .--. ^   |   |
+start -.   ob|st|a|cle| .-'
+       '-. .-'  | '---' |
+         '-'    '-------'
+------------------------->
+      ^
+      |
+  --|||-->
+    vv
+
+      ^
+      |
+ <--|||---
+    vv
+
+      ^
+    |||
+ <--------
+    |||
+    vv|
+
+      ^
+    .||
+ -------->
+    ||'
+    vv
+
+.-@id:mytest--.
+|   .-.   .-> |
+|   | | .-'   |
+| --|---|---> |
+|   | '-'     |
+'-------------'
+
+
+end
+    </diascii>
+
+    <script src="diascii.js"></script>
+  </body>
+</html>
