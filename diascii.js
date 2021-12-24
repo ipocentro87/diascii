@@ -1,12 +1,12 @@
 // Diascii
 
-const DD_ROUNDED_BOX = {"top":    /^\.-+(@(id|cl):\w+)*-+\./,
+const DD_ROUNDED_BOX = {"top":    /^\.-+(#(?<id>\w+))?-*(?<classes>((\w+)-*)*)-\./,
                         "middle": /^[\|\+].*[\|\+]$/,
                         "bottom": /^'-+'$/};
 
 const DD_STRAIGHT_ARROW = /^[^\-](-+>)/;
 
-const DD_PLAIN_TEXT = /^\b([\w\.\,]+ ?)+\b/;
+const DD_PLAIN_TEXT = /^:?\b([\w\.\,]+ ?)+\b:?/;
 
 const DD_SCALE_X = 10;
 const DD_SCALE_Y = 25;
@@ -28,6 +28,16 @@ function getYdim(i)
 {
     var iScaled = DD_SCALE_Y * i;
     return iScaled.toString();
+}
+
+function addExclude(excludes, r, c)
+{
+    excludes.push([r, c]);
+}
+
+function concatExclude(excludes, lst)
+{
+    excludes.push.apply(excludes, lst);
 }
 
 function ddParseRoundedBox(elem, m, r, c, zindex, excludes, orig)
@@ -54,16 +64,7 @@ function ddParseRoundedBox(elem, m, r, c, zindex, excludes, orig)
 
                 // return
                 boxElem = document.createElement("div");
-                if (tmatches.length > 1 && tmatches[1] != undefined) {
-                    if (tmatches[1].startsWith("@id:")) {
-                        boxElem.id = tmatches[1].replace(/^@id:/, "");
-                    }
-                    if (tmatches[1].startsWith("@cl:")) {
-                        boxElem.classList.add(tmatches[1].replace(/^@cl:/, ""));
-                    }
-                }
                 boxElem.classList.add("DD_ROUNDED_BOX");
-                boxElem.style.position = "absolute";
                 boxElem.style.top      = getYdim(top) + "px";
                 boxElem.style.height   = getYdim(height) + "px";
                 boxElem.style.left     = getXdim(left) + "px";
@@ -77,11 +78,32 @@ function ddParseRoundedBox(elem, m, r, c, zindex, excludes, orig)
                         textContent.push(m[rbox].slice(boxCoord[0][1]+1, boxCoord[1][1]));
                     }
                     for (var cbox=c; cbox<c+width+1; cbox++) {
-                        excludes.push([rbox, cbox]);
+                        addExclude(excludes, rbox, cbox);
                     }
                 }
                 boxElem.textContent = textContent.join("\n");
                 ddParseInnerText(boxElem, zindex+1, [0.5, 0.5]);
+
+                if ("id" in tmatches.groups && tmatches.groups.id) {
+                    if (tmatches.groups.id.length > 0) {
+                        boxElem.id = tmatches.groups.id;
+                        spanElem = document.createElement("span");
+                        spanElem.classList.add("DD_ID");
+                        spanElem.textContent    = boxElem.id;
+                        spanElem.style.top      = getYdim(-0.5) + "px";
+                        spanElem.style.zIndex   = zindex;
+                        boxElem.appendChild(spanElem);
+                    }
+                }
+
+                if ("classes" in tmatches.groups && tmatches.groups.classes) {
+                    clsList = tmatches.groups.classes.split("-");
+                    for (var cls=0; cls<clsList.length; cls++) {
+                        if (clsList[cls].length > 0)
+                            boxElem.classList.add(clsList[cls]);
+                    }
+                }
+
 
                 return true;
             }
@@ -117,11 +139,28 @@ function getArrowList(m, r, c, pathList, excludes, excludesLocal, from=null)
     var fromRight  = (from == null || from == "right"  || from == "right-jump");
     var fromBottom = (from == null || from == "bottom" || from == "bottom-jump");
     var fromTop    = (from == null || from == "top"    || from == "top-jump");
-    var theresLeft   = (from == "left-jump")   || ((p.center != "|") && (p.left.match(/[\-\.'<]/) != null));
-    var theresRight  = (from == "right-jump")  || ((p.center != "|") && (p.right.match(/[\-\.'>]/) != null));
-    var theresBottom = (from == "bottom-jump") || ((p.center != "-") && (p.bottom.match(/[\-\|'v]/) != null));
-    var theresTop    = (from == "top-jump")    || ((p.center != "-") && (p.top.match(/[\-\|\.^]/) != null));
 
+    var patternLR = ["<-", "<.", "<'",
+                     "--", "-.", "-'", "->",
+                     ".-", ".'", ".>",
+                     "'-", "'.", "'>"];
+    var patternMaybeLR = ["..", "''"];
+    var patternTB = ["||", "|'", "|v",
+                     ".|", ".v", ".'",
+                     "^|", "^'"];
+    var theresLeft   = (from == "left-jump")
+                    || patternLR.includes(p.left + p.center);
+    var theresRight  = (from == "right-jump")
+                    || patternLR.includes(p.center + p.right);
+    var theresBottom = (from == "bottom-jump")
+                    || patternTB.includes(p.center + p.bottom);
+    var theresTop    = (from == "top-jump")
+                    || patternTB.includes(p.top + p.center);
+
+    if (patternLR.includes(p.left + p.center) && !theresRight)
+        theresLeft = true;
+    if (patternLR.includes(p.center + p.right) && !theresLeft)
+        theresRight = true;
 
     var theresOnlyLeft   =  theresLeft && !theresRight && !theresBottom && !theresTop;
     var theresOnlyRight  = !theresLeft &&  theresRight && !theresBottom && !theresTop;
@@ -354,22 +393,22 @@ function getArrowList(m, r, c, pathList, excludes, excludesLocal, from=null)
     else if (!pBegin) {
         if (p.center == ">" && checkLeft) {
             excludesLocal.push([r, c]);
-            excludes.push.apply(excludes, excludesLocal);
+            concatExclude(excludes, excludesLocal);
             return [p.center, pathList];
         }
         else if (p.center == "<" && checkRight) {
             excludesLocal.push([r, c]);
-            excludes.push.apply(excludes, excludesLocal);
+            concatExclude(excludes, excludesLocal);
             return [p.center, pathList];
         }
         else if (p.center == "^" && checkBottom) {
             excludesLocal.push([r, c]);
-            excludes.push.apply(excludes, excludesLocal);
+            concatExclude(excludes, excludesLocal);
             return [p.center, pathList];
         }
         else if (p.center == "v" && checkTop) {
             excludesLocal.push([r, c]);
-            excludes.push.apply(excludes, excludesLocal);
+            concatExclude(excludes, excludesLocal);
             return [p.center, pathList];
         }
     }
@@ -454,18 +493,54 @@ function ddParseText(elem, m, r, c, zindex, excludes, orig)
     var tmatches = tcontent.match(DD_PLAIN_TEXT);
     if (tmatches != null) {
         var tmatch = tmatches[0];
+        var ldots = tmatches[0].startsWith(":");
+        var rdots = tmatches[0].endsWith(":");
         var spanCenter = [r+0.5+orig[0], c+(tmatch.length/2)+orig[1]];
 
         spanElem = document.createElement("span");
         spanElem.classList.add("DD_PLAIN_TEXT");
+        if (ldots && !rdots)
+            spanElem.classList.add("DD_LDOTS");
+        else if (!ldots && rdots)
+            spanElem.classList.add("DD_RDOTS");
+        else if (ldots && rdots)
+            spanElem.classList.add("DD_DOTS");
+
+        if (c+tmatch.length==m[r].length)
+            spanElem.classList.add("DD_ALIGN_RIGHT");
+        if (c==0)
+            spanElem.classList.add("DD_ALIGN_LEFT");
+        if (r==0)
+            spanElem.classList.add("DD_ALIGN_TOP");
+        if (r==m.length-1)
+            spanElem.classList.add("DD_ALIGN_BOTTOM");
+
+        diffSpaceLR = Math.abs((m[r].length-(tmatch.length+c)) - c);
+        diffSpaceTB = Math.abs((m.length-r-1)-r);
+
+        if (diffSpaceLR <= 1)
+            spanElem.classList.add("DD_ALIGN_HCENTRISH");
+        if (diffSpaceLR == 0)
+            spanElem.classList.add("DD_ALIGN_HCENTER");
+
+        if (diffSpaceTB <= 1)
+            spanElem.classList.add("DD_ALIGN_VCENTRISH");
+        if (diffSpaceTB == 0)
+            spanElem.classList.add("DD_ALIGN_VCENTER");
+
+        if (diffSpaceLR + diffSpaceTB <= 1)
+            spanElem.classList.add("DD_ALIGN_CENTERISH");
+        if (diffSpaceLR + diffSpaceTB == 0)
+            spanElem.classList.add("DD_ALIGN_CENTER");
+
         spanElem.style.position = "absolute";
-        spanElem.textContent    = tmatch;
+        spanElem.textContent    = tmatches[1];
         spanElem.style.top      = getYdim(spanCenter[0]) + "px";
         spanElem.style.left     = getXdim(spanCenter[1]) + "px";
         spanElem.style.zIndex   = zindex;
         elem.appendChild(spanElem);
         for (var cbox=c; cbox<c+tmatch.length; cbox++) {
-            excludes.push([r, cbox])
+            addExclude(excludes, r, cbox);
         }
     }
 }
@@ -486,6 +561,7 @@ function ddParseInnerText(elem, zindex, orig)
         for (var r=0; r<m.length; r++) {
             for (var c=0; c<m[r].length; c++) {
                 if (excludes.some(i => {return i[0] == r && i[1] == c})) continue;
+//                if (r==7 && c==20 && parseList[p] == ddParseArrow && excludes.length > 0) debugger;
                 parseList[p](elem, m, r, c, zindex, excludes, orig);
             }
         }

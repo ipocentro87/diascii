@@ -2,6 +2,11 @@ diascii {
     position: relative;
     display: block;
     overflow: visible;
+    margin:0 auto;
+}
+
+diascii .DD_ROUNDED_BOX {
+    position:absolute;
 }
 
 diasciis svg.DD_ARROW marker {
@@ -12,8 +17,27 @@ diascii svg.DD_ARROW path {
     fill: none;
 }
 
-diascii .DD_PLAIN_TEXT {
+diascii .DD_PLAIN_TEXT, diascii .DD_ID {
     align-items: center;
     text-align: center;
     transform: translate(-50%, -50%);
+}
+
+diascii .DD_ID {
+    display:none;
+    position:absolute;
+    left:50%;
+    transform: translate(-50%, -40%);
+}
+
+
+diascii .DD_ROUNDED_BOX .DD_DOTS,
+diascii .DD_ROUNDED_BOX .DD_ALIGN_CENTRISH {
+    top:50%!important;
+    left:50%!important;
+}
+
+diascii .DD_ROUNDED_BOX .DD_ALIGN_RIGHT {
+    right:-5px!important;
+    left:unset!important;
 }

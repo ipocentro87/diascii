@@ -21,9 +21,15 @@
           --color-burnt-sienna: #e76f51;
       }
 
-      diascii {
+      body {
           font-family: Source Sans Pro;
-          margin:0 auto;
+          padding: 0 100px;
+      }
+
+      div#container {
+          width:400px;
+          margin-left:auto;
+          margin-right:auto;
       }
 
       diascii .DD_ROUNDED_BOX {
@@ -36,16 +42,8 @@
           font-weight: 600;
       }
 
-      diascii .DD_PLAIN_TEXT {
+      diascii {
           color: var(--color-jungle-green);
-      }
-
-      diascii #cntrl {
-          background-color: var(--color-jungle-green);
-      }
-
-      diascii #cntrl .DD_PLAIN_TEXT {
-          color: var(--color-blue-dianne);
       }
 
       diascii #cntrl #cont {
@@ -57,9 +55,9 @@
           stroke-width: 7px;
       }
 
-      diascii svg {
-          transform: translateY(2px);
-      }
+      /* diascii svg { */
+      /*     transform: translateY(2px); */
+      /* } */
 
       diascii #mytest {
           background-color:var(--color-sandy-brown);
@@ -72,31 +70,51 @@
     </style>
   </head>
   <body>
-    <diascii>
-.-@id:cntrl------.     .-@id:agent------.
-|             req|---->|                |
-| Controller  ack|<----|     Agent      |
-|                |     |                |
-'----------------'     '----------------'
+    <div id="container">
+    <h3>First example</h3>
+
+    <p> Lorem ipsum</p>
+
+    <style>
+      diascii#diagram-1 #controller {
+          background-color: var(--color-sandy-brown);
+          color: var(--color-blue-dianne);
+      }
+      diascii#diagram-1 #agent .DD_PLAIN_TEXT {
+          color: var(--color-sandy-brown);
+      }
+      diascii#diagram-1 .DD_ALIGN_RIGHT {
+          font-size:12px;
+          text-transform: uppercase;
+      }
+    </style>
+    <diascii id="diagram-1">
+.-#controller-----.     .-#agent---------.
+|              req|---->|                |
+|:Controller:  ack|<----|     Agent      |
+|                 |     |                |
+'-----------------'     '----------------'
          ^                     ^
          '---------..----------'
                    ||
-              .---------.
+              .-#mon----.
               | Monitor |
               '---------'
     </diascii>
 
+    <h3>First example</h3>
+
     <diascii>
-.-@id:cntrl----.   ab  .---------.
+.-#cntrl-------.   ab  .---------.
 |              |a ---->|b a      |
 |  Controller  |.----->|  Agent  |
 |    x -> y    |<------|         |
-| .-@id:cont-. | .--.  '---------'
+| .-#cont----. | .--.  '---------'
 | |  A       | | |  | .----> -->
 | |  B       | | '--' | prova .--.
 | '----------' |------'  <----'
 '--------------'           <------
-        .-@cl:pluto--.
+        .--pluto-----.
         |   testC    |
         '------------'
 
@@ -144,7 +162,7 @@ start -.   ob|st|a|cle| .-'
     ||'
     vv
 
-.-@id:mytest--.
+.-#mytest-----.
 |   .-.   .-> |
 |   | | .-'   |
 | --|---|---> |
@@ -154,7 +172,7 @@ start -.   ob|st|a|cle| .-'
 
 end
     </diascii>
-
+    </div>
     <script src="diascii.js"></script>
   </body>
 </html>
