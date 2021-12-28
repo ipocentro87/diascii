@@ -28,6 +28,7 @@ diascii div.DIASCII_BOX {
 diascii span.DIASCII_TEXT {
     font-size: calc(var(--diascii-scale-y) * 0.7 * 1px);
     font-weight: 500;
+    width: 100%;
 }
 
 diascii svg.DIASCII_ARROW {
@@ -69,4 +70,5 @@ diascii div.DIASCII_BOX span.DIASCII_ALIGN_CENTERISH {
 diascii div.DIASCII_BOX span.DIASCII_ALIGN_RIGHT {
     right:-5px!important;
     left:unset!important;
+    width:unset!important;
 }
