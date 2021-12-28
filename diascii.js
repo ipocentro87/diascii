@@ -8,7 +8,7 @@
                 middle: /^[\|\+].*[\|\+]$/,
                 bottom: /^'-+'$/
             },
-            text: /^:?\b([\w\.\,]+ ?)+\b:?/
+            text: /^:?\b(([\w\.\,]+ ?)+)\b:?/
         },
         classes: {
             debug: "DIASCII_DEBUG",
