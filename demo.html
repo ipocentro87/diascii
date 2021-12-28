@@ -23,9 +23,26 @@
 
       body {
           font-family: Source Sans Pro;
+          font-size: 18px;
           padding: 0 100px;
+          text-align: justify;
+          background-color: #eee;
       }
 
+      div.hstack {
+          display: flex;
+	      flex-direction: row;
+	      align-items: center;
+	      justify-content: center;
+      }
+
+      div.hstack > * {
+          margin:0 0 0 20px;
+      }
+
+      div.hstack:first-child {
+          margin-left:0px!important;
+      }
 
       div#container {
           width:60%;
@@ -39,66 +56,94 @@
       }
 
       diascii {
-          color: var(--color-jungle-green);
-      }
-
-      diascii #cntrl #cont {
-          background-color: var(--color-sandy-brown);
+          color: var(--color-sandy-brown);
       }
 
       diascii svg.DIASCII_ARROW path {
           stroke:var(--color-sandy-brown);
           stroke-width: 7px;
       }
-
-      /* diascii svg { */
-      /*     transform: translateY(2px); */
-      /* } */
-
-      diascii #mytest {
-          background-color:var(--color-sandy-brown);
-      }
-
-      diascii #mytest svg.DIASCII_ARROW path {
-          stroke: var(--color-blue-dianne);
-          stroke-width: 4px;
-      }
     </style>
   </head>
   <body>
     <div id="container">
-      <center>
-        <h1>Diascii</h1>
-      </center>
+      <h1>Diascii</h1>
+      <p><em>Diascii</em> is a Javascript tool that converts ASCII-art
+        diagrams into beautiful structured HTML. Inspired by the
+        fabulous <a href="https://casual-effects.com/markdeep/">markdeep</a>
+        package, Diascii is able to recognise and convert complex
+        structures, like containers or arrows, to well defined HTML
+        entities.  This approach enables unlimitless customisation
+        through CSS without compromising the ASCII-art
+        readibility!</p>
 
-    <h3>First example</h3>
+      <p>Once Diascii is imported, anything within the
+      tags <b>diascii</b> is parsed. See the example below:</p>
 
-    <p> Lorem ipsum</p>
+      <div class="hstack">
+        <pre>
+      .------------.
+----->|  Example   |----->
+      '------------'</pre>
 
-    <style>
-      diascii#diagram-1 #controller {
-          background-color: var(--color-sandy-brown);
-          color: var(--color-blue-dianne);
-      }
-      diascii#diagram-1 #agent .DIASCII_TEXT {
-          color: var(--color-sandy-brown);
-      }
-      diascii#diagram-1 span.DIASCII_ALIGN_RIGHT {
-          font-size:70%;
-          text-transform: uppercase;
-          font-weight:700;
-      }
-    </style>
+        <diascii>
+      .------------.
+----->|  Example   |----->
+      '------------'
+        </diascii>
+      </div>
 
-    <diascii id="diagram-0" class="DIASCII_DEBUG">
-      ^
-      |
-   -|||-->
-    vv
-    </diascii>
+      <p>The ASCII-art's examples that follow are no longer shown, as
+      they can be seen in the source code.</p>
 
-    <diascii id="diagram-1" class="DIASCII_DEBUG">
-.-#controller-----.     .-#agent---------.
+      <h3>Box objects</h3>
+
+      <p>A box object is simply an ASCII-art container that is
+      converted into an HTML div. It can be tagged with a specific
+      class or id, and can be nested:</p>
+
+      <style>
+        diascii#box-objects-1 .agent,
+        diascii#box-objects-1 .nested{
+            background-color: var(--color-sandy-brown);
+            color: var(--color-blue-dianne);
+        }
+        diascii#box-objects-1 .nested .DIASCII_TEXT {
+            color: var(--color-sandy-brown);
+        }
+        diascii#box-objects-1 #controller span {
+            text-decoration:underline;
+        }
+      </style>
+      <diascii id="box-objects-1">
+.-#controller-----.     .-agent----------.     .-nested---------.
+|                 |     |                |     |.--------------.|
+|   Controller    |     |     Agent      |     || Nested Block ||
+|                 |     |                |     |'--------------'|
+'-----------------'     '----------------'     '----------------'
+      </diascii>
+
+      <p>Notice that the resulting HTML is rich of Diascii classes
+        that can be used to customise the diagram style. For instance,
+        in this example Diascii was able to recognise that the
+        text <em>Controller</em> is almost centered. As a result, the
+        corresponding span element is tagged
+        with <tt>DIASCII_ALIGN_CENTERISH</tt>.</p>
+
+      <p>Text placed at the border of a box is identified and tagged
+        with the <tt>DIASCII_ALIGN_*</tt> classes. Text surrounded with
+        colons is also tagged:</p>
+
+      <style>
+        diascii#box-objects-2 span.DIASCII_ALIGN_RIGHT {
+            font-size:70%;
+            text-transform: uppercase;
+            font-weight:700;
+        }
+      </style>
+
+      <diascii id="box-objects-2">
+.-----------------.     .----------------.
 |              req|---->|                |
 |:Controller:  ack|<----|     Agent      |
 |                 |     |                |
@@ -106,81 +151,83 @@
          ^                     ^
          '---------..----------'
                    ||
-              .-#mon-----.
+              .----------.
               |  Monitor |
               '----------'
-    </diascii>
-
-    <h3>First example</h3>
-
-    <diascii>
-.-#cntrl-------.   ab  .---------.
-|              |a ---->|b a      |
-|  Controller  |.----->|  Agent  |
-|    x -> y    |<------|         |
-| .-#cont----. | .--.  '---------'
-| |  A       | | |  | .----> -->
-| |  B       | | '--' | prova .--.
-| '----------' |------'  <----'
-'--------------'           <------
-        .--pluto-----.
-        |   testC    |
-        '------------'
-
-Arrow stress test:
-
-| ^  <-. .-. .-
-| |    | | | |
-'-'  --' v | '->
-
-^ |  --. .-. .->
-| |    | | | |
-'-'  <-' | v '-
-
-  ^  <-. .-. .
-  |    | |   |
-'-'    ' v   '->
-
-^      . .-. .->
-|      |   | |
-'-'  <-'   v '   end  .---.
-             .--. ^   |   |
-start -.   ob|st|a|cle| .-'
-       '-. .-'  | '---' |
-         '-'    '-------'
-------------------------->
-      ^
-      |
-   -|||-->
-    vv
-
-      ^
-      |
- <--|||---
-    vv
-
-      ^
-    |||
- <--------
-    |||
-    vv|
-
-      ^
-    .||
- -------->
-    ||'
-    vv
-
-.-#mytest-----.
-|   .-.   .-> |
-|   | | .-'   |
-| --|---|---> |
-|   | '-'     |
-'-------------'
+      </diascii>
 
 
-end
-    </diascii>
+
+<!--     <h3>First example</h3> -->
+
+<!--     <diascii> -->
+<!-- .-#cntrl-------.   ab  .---------. -->
+<!-- |              |a ---\->|b a      | -->
+<!-- |  Controller  |.----\->|  Agent  | -->
+<!-- |    x -> y    |<------|         | -->
+<!-- | .-#cont----. | .--.  '---------' -->
+<!-- | |  A       | | |  | .---\-> -\-> -->
+<!-- | |  B       | | '--' | prova .--. -->
+<!-- | '----------' |------'  <----' -->
+<!-- '--------------'           <------ -->
+<!--         .--pluto-----. -->
+<!--         |   testC    | -->
+<!--         '------------' -->
+
+<!-- Arrow stress test: -->
+
+<!-- | ^  <-. .-. .- -->
+<!-- | |    | | | | -->
+<!-- '-'  --' v | '-> -->
+
+<!-- ^ |  --. .-. .-> -->
+<!-- | |    | | | | -->
+<!-- '-'  <-' | v '- -->
+
+<!--   ^  <-. .-. . -->
+<!--   |    | |   | -->
+<!-- '-'    ' v   '-> -->
+
+<!-- ^      . .-. .-> -->
+<!-- |      |   | | -->
+<!-- '-'  <-'   v '   end  .---. -->
+<!--              .--. ^   |   | -->
+<!-- start -.   ob|st|a|cle| .-' -->
+<!--        '-. .-'  | '---' | -->
+<!--          '-'    '-------' -->
+<!-- ------------------------\-> -->
+<!--       ^ -->
+<!--       | -->
+<!--    -|||-\-> -->
+<!--     vv -->
+
+<!--       ^ -->
+<!--       | -->
+<!--  <--|||--- -->
+<!--     vv -->
+
+<!--       ^ -->
+<!--     ||| -->
+<!--  <-------- -->
+<!--     ||| -->
+<!--     vv| -->
+
+<!--       ^ -->
+<!--     .|| -->
+<!--  -------\-> -->
+<!--     ||' -->
+<!--     vv -->
+
+<!-- .-#mytest-----. -->
+<!-- |   .-.   .-> | -->
+<!-- |   | | .-'   | -->
+<!-- | --|---|--\-> | -->
+<!-- |   | '-'     | -->
+<!-- '-------------' -->
+
+
+<!-- end -->
+<!--     </diascii> -->
     </div>
     <script src="diascii.js"></script>
   </body>
