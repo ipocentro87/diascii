@@ -1,590 +1,701 @@
 // Diascii
 
-const DD_ROUNDED_BOX = {"top":    /^\.-+(#(?<id>\w+))?-*(?<classes>((\w+)-*)*)-\./,
-                        "middle": /^[\|\+].*[\|\+]$/,
-                        "bottom": /^'-+'$/};
+(function() {
+    const _lib = {
+        regexp: {
+            box: {
+                top:    /^\.-+(#(?<id>\w+))?-*(?<classes>((\w+)-*)*)-\./,
+                middle: /^[\|\+].*[\|\+]$/,
+                bottom: /^'-+'$/
+            },
+            text: /^:?\b([\w\.\,]+ ?)+\b:?/
+        },
+        classes: {
+            debug: "DIASCII_DEBUG",
+            align: {
+                border: "DIASCII_ALIGN_BORDER",
+                right:  "DIASCII_ALIGN_RIGHT",
+                left:   "DIASCII_ALIGN_LEFT",
+                top:    "DIASCII_ALIGN_TOP",
+                bottom: "DIASCII_ALIGN_BOTTOM",
+                hcenterish: "DIASCII_ALIGN_HCENTERISH",
+                hcenter:    "DIASCII_ALIGN_HCENTER",
+                vcenterish: "DIASCII_ALIGN_VCENTERISH",
+                vcenter:    "DIASCII_ALIGN_VCENTER",
+                centerish:  "DIASCII_ALIGN_CENTERISH",
+                center:     "DIASCII_ALIGN_CENTER"
+            },
+            text: {
+                normal: "DIASCII_TEXT",
+                lcolon: "DIASCII_TEXT_LCOLON",
+                rcolon: "DIASCII_TEXT_RCOLON",
+                colons: "DIASCII_TEXT_COLONS"
+            },
+            box:    "DIASCII_BOX",
+            id:     "DIASCII_ID",
+            class0: "DIASCII_CLASS0"
+        },
+        arrow: {
+            patternLR:      ["<-", "<.", "<'",
+                             "--", "-.", "-'", "->",
+                             ".-", ".'", ".>",
+                             "'-", "'.", "'>"],
+            patternLRJump: ["-|",
+                            "|-"],
+            // patternLRMaybe: ["..", "''"],
+            patternTB:      ["||", "|'", "|v",
+                             ".|", ".v", ".'",
+                             "^|", "^'"],
+            patternTBJump: ["-|", "-'",
+                            ".-", "|-"],
+        }
+    };
 
-const DD_STRAIGHT_ARROW = /^[^\-](-+>)/;
+    var _diascii_last_id = -1;
 
-const DD_PLAIN_TEXT = /^:?\b([\w\.\,]+ ?)+\b:?/;
+    function getID() {
+        _diascii_last_id++;
+        return _diascii_last_id;
+    }
 
-const DD_SCALE_X = 10;
-const DD_SCALE_Y = 25;
-const DD_ARROW_CROSS_GAP = 2;
+    function getX(parseObj, i) {
+        var iScaled = parseObj.config.scaleX * i;
+        return iScaled.toString();
+    }
 
-const DD_SCALE_ARROW = 0.75;
+    function getY(parseObj, i) {
+        var iScaled = parseObj.config.scaleY * i;
+        return iScaled.toString();
+    }
 
-var DD_ID_NUM = 0;
+    function getWidth(m) {
+        var width = 0;
+        for (var r=0, rlen=m.length; r<rlen; r++) {
+            width = Math.max(width, m[r].length);
+        }
+        return width;
+    }
 
-var DD_SVG;
+    function loadConfig(elem) {
+        var style = window.getComputedStyle(elem, null);
+        return {
+            scaleX:        parseInt(style.getPropertyValue("--diascii-scale-x"), 10),
+            scaleY:        parseInt(style.getPropertyValue("--diascii-scale-y"), 10),
+            scaleArrowGap: parseInt(style.getPropertyValue("--diascii-scale-arrow-gap"), 10)
+        }
+    }
 
-function getXdim(i)
-{
-    var iScaled = DD_SCALE_X * i;
-    return iScaled.toString();
-}
+    function parseArrow(parseObj, point, opts) {
+        function getSurroundingPoints(parseObj, point) {
+            var r = point.r;
+            var c = point.c;
+            var m = parseObj.m;
 
-function getYdim(i)
-{
-    var iScaled = DD_SCALE_Y * i;
-    return iScaled.toString();
-}
+            var rm1 = r-1;
+            var rp1 = r+1;
+            var cm1 = c-1;
+            var cp1 = c+1;
+            var ret = {};
+            if (rm1 >= 0 && c < m[rm1].length)       {ret.top = m[rm1][c];}
+            else                                     {ret.top = "";}
+            if (rp1 < m.length && c < m[rp1].length) {ret.bottom = m[rp1][c];}
+            else                                     {ret.bottom = "";}
+            if (cm1 >= 0)                            {ret.left = m[r][cm1];}
+            else                                     {ret.left = "";}
+            if (cp1 < m[r].length)                   {ret.right = m[r][cp1];}
+            else                                     {ret.right = "";}
+            ret.center = m[r][c];
+            return ret;
+        }
 
-function addExclude(excludes, r, c)
-{
-    excludes.push([r, c]);
-}
+        function getArrows(parseObj, pathObj, from=null)
+        {
+            var arrows = [];
+            var lastPoint = pathObj.points[pathObj.points.length-1];
+            var m = parseObj.m;
+            var r = lastPoint.r;
+            var c = lastPoint.c;
 
-function concatExclude(excludes, lst)
-{
-    excludes.push.apply(excludes, lst);
-}
+            var p = getSurroundingPoints(parseObj, lastPoint);
+            var fromLeft   = (from == null || from == "left"   || from == "left-jump");
+            var fromRight  = (from == null || from == "right"  || from == "right-jump");
+            var fromBottom = (from == null || from == "bottom" || from == "bottom-jump");
+            var fromTop    = (from == null || from == "top"    || from == "top-jump");
 
-function ddParseRoundedBox(elem, m, r, c, zindex, excludes, orig)
-{
-    var tslice   = m[r].slice(c);
-    var tmatches = tslice.match(DD_ROUNDED_BOX["top"]);
+            var theresLeft   = (from == "left-jump")   || _lib.arrow.patternLR.includes(p.left + p.center);
+            var theresRight  = (from == "right-jump")  || _lib.arrow.patternLR.includes(p.center + p.right);
+            var theresBottom = (from == "bottom-jump") || _lib.arrow.patternTB.includes(p.center + p.bottom);
+            var theresTop    = (from == "top-jump")    || _lib.arrow.patternTB.includes(p.top + p.center);
 
-    if (tmatches != null) {
-        var tmatch = tmatches[0];
-        var boxCoord = [[r, c], [r, c+tmatch.length-1]];
-        for (var rbox=r; rbox<m.length; rbox++) {
-            var bslice = m[rbox].slice(boxCoord[0][1], boxCoord[1][1]+1);
-            var bmatches = bslice.match(DD_ROUNDED_BOX["middle"]);
-            if (bmatches != null && bmatches[0].length == tmatch.length) {
-                boxCoord[1][0]++;
+            var theresLeftJump   = (from == "left-jump" && (p.left + p.center) == "||")     || _lib.arrow.patternLRJump.includes(p.left + p.center);
+            var theresRightJump  = (from == "right-jump" && (p.center + p.right) == "||")   || _lib.arrow.patternLRJump.includes(p.center + p.right);
+            var theresBottomJump = (from == "bottom-jump" && (p.center + p.bottom) == "--") || _lib.arrow.patternTBJump.includes(p.center + p.bottom);
+            var theresTopJump    = (from == "top-jump" && (p.top + p.center) == "--")       || _lib.arrow.patternTBJump.includes(p.top + p.center);
+
+            var theresOnlyLeft   =  theresLeft && !theresRight && !theresBottom && !theresTop;
+            var theresOnlyRight  = !theresLeft &&  theresRight && !theresBottom && !theresTop;
+            var theresOnlyBottom = !theresLeft && !theresRight &&  theresBottom && !theresTop;
+            var theresOnlyTop    = !theresLeft && !theresRight && !theresBottom &&  theresTop;
+
+            var theresOnlyAny    = theresOnlyLeft || theresOnlyRight || theresOnlyBottom || theresOnlyTop;
+
+            var theresOnlyLeftJump   = !theresOnlyAny &&  theresLeftJump && !theresRightJump && !theresBottomJump && !theresTopJump;
+            var theresOnlyRightJump  = !theresOnlyAny && !theresLeftJump &&  theresRightJump && !theresBottomJump && !theresTopJump;
+            var theresOnlyBottomJump = !theresOnlyAny && !theresLeftJump && !theresRightJump &&  theresBottomJump && !theresTopJump;
+            var theresOnlyTopJump    = !theresOnlyAny && !theresLeftJump && !theresRightJump && !theresBottomJump &&  theresTopJump;
+
+            var checkLeft   = fromLeft   && (from ? theresLeft   : (theresOnlyRight  || theresOnlyRightJump));
+            var checkRight  = fromRight  && (from ? theresRight  : (theresOnlyLeft   || theresOnlyLeftJump));
+            var checkBottom = fromBottom && (from ? theresBottom : (theresOnlyTop    || theresOnlyTopJump));
+            var checkTop    = fromTop    && (from ? theresTop    : (theresOnlyBottom || theresOnlyBottomJump));
+
+
+            var goLeft   = ((c-1 >= 0) && theresLeft)           || ((c-2 >= 0) && theresLeftJump);
+            var goRight  = ((c+1 < m[r].length) && theresRight) || ((c+2 < m[r].length) && theresRightJump);
+            var goBottom = ((r+1 < m.length) && theresBottom)   || ((r+2 < m.length) && theresBottomJump);
+            var goTop    = ((r-1 >= 0) && theresTop)            || ((r-2 >= 0) && theresTopJump);
+
+            var size      = Math.min(parseObj.config.scaleX, parseObj.config.scaleY);
+            var scaleDiff = Math.abs(parseObj.config.scaleX-parseObj.config.scaleY);
+            var scaleXltY = parseObj.config.scaleX < parseObj.config.scaleY;
+            var scaleXgtY = parseObj.config.scaleX > parseObj.config.scaleY;
+            var done = true;
+            var draw = true;
+            var go = null;
+
+            var x = function(i) {return getX(parseObj, i)};
+            var y = function(i) {return getY(parseObj, i)};
+
+            if (p.center == "|" && from == "left-jump") {
+                pathObj.path.push("h {Math.max(0, " + x(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                pathObj.path.push("m {Math.min(2 * parseObj.config.scaleArrowGap + strokeWidth," + x(1) + ")} 0");
+                pathObj.path.push("h {Math.max(0, " + x(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                go = "right-jump";
+                draw = false;
             }
-            var bmatches = bslice.match(DD_ROUNDED_BOX["bottom"]);
-            if (bmatches != null && bmatches[0].length == tmatch.length) {
-                boxCoord[1][0]++;
-                var width  = boxCoord[1][1] - boxCoord[0][1];
-                var left   = boxCoord[0][1] + 0.5 + orig[0];
-                var height = boxCoord[1][0] - boxCoord[0][0];
-                var top    = boxCoord[0][0] + 0.5 + orig[1];
-
-                // return
-                boxElem = document.createElement("div");
-                boxElem.classList.add("DD_ROUNDED_BOX");
-                boxElem.style.top      = getYdim(top) + "px";
-                boxElem.style.height   = getYdim(height) + "px";
-                boxElem.style.left     = getXdim(left) + "px";
-                boxElem.style.width    = getXdim(width) + "px";
-                boxElem.style.zIndex   = zindex;
-                elem.appendChild(boxElem);
-
-                var textContent = [];
-                for (var rbox=r; rbox<r+height+1; rbox++) {
-                    if (rbox > r && rbox < r+height) {
-                        textContent.push(m[rbox].slice(boxCoord[0][1]+1, boxCoord[1][1]));
-                    }
-                    for (var cbox=c; cbox<c+width+1; cbox++) {
-                        addExclude(excludes, rbox, cbox);
-                    }
+            else if (p.center == "|" && from == "right-jump") {
+                pathObj.path.push("h {-Math.max(0, " + x(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                pathObj.path.push("m {-Math.min(2 * parseObj.config.scaleArrowGap + strokeWidth," + x(1) + ")} 0");
+                pathObj.path.push("h {-Math.max(0, " + x(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                go = "left-jump";
+                draw = false;
+            }
+            else if (p.center == "-" && from == "bottom-jump") {
+                pathObj.path.push("v   {-Math.max(0, " + y(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                pathObj.path.push("m 0 {-Math.min(2 * parseObj.config.scaleArrowGap + strokeWidth," + y(1) + ")}");
+                pathObj.path.push("v   {-Math.max(0, " + y(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                go = "top-jump";
+                draw = false;
+            }
+            else if (p.center == "-" && from == "top-jump") {
+                pathObj.path.push("v   {Math.max(0, " + y(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                pathObj.path.push("m 0 {Math.min(2 * parseObj.config.scaleArrowGap + strokeWidth," + y(1) + ")}");
+                pathObj.path.push("v   {Math.max(0, " + y(0.5) + "- 0.5*strokeWidth - parseObj.config.scaleArrowGap)}");
+                go = "bottom-jump";
+                draw = false;
+            }
+            else if (p.center == "-" && checkLeft && goRight) {
+                pathObj.path.push("h " + x(1));
+                go = theresRightJump ? "right-jump" : "right";
+            }
+            else if (p.center == "-" && checkRight && goLeft) {
+                if (from == null)
+                    pathObj.path.push("m " + x(1) + " 0");
+                pathObj.path.push("h " + x(-1));
+                go = theresLeftJump ? "left-jump" : "left";
+            }
+            else if (p.center == "|" && checkBottom && goTop) {
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " " + y(0.5));
+                pathObj.path.push("v " + y(-1));
+                go = theresTopJump ? "top-jump" : "top";
+            }
+            else if (p.center == "|" && checkTop && goBottom) {
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " " + y(-0.5));
+                pathObj.path.push("v " + y(1));
+                go = theresBottomJump ? "bottom-jump" : "bottom";
+            }
+            else if ((p.center == "." && checkBottom && goRight)
+                     || (p.center == "." && checkLeft   && goRight)) {
+                // .>
+                // |
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " " + y(0.5));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (-0.5 * scaleDiff).toString());
                 }
-                boxElem.textContent = textContent.join("\n");
-                ddParseInnerText(boxElem, zindex+1, [0.5, 0.5]);
+                pathObj.path.push("q " + [0, -0.5*size].join(",") + " " + [0.5*size, -0.5*size].join(","));
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (0.5 * scaleDiff).toString());
+                }
+                go = "right";
+            }
+            else if ((p.center == "." && checkBottom && goLeft)
+                     || (p.center == "." && checkRight  && goLeft)) {
+                // <.
+                //  |
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " " + y(0.5));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (-0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [0, -0.5*size].join(",") + " " + [-0.5*size, -0.5*size].join(","));
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
+                }
+                go = "left";
+            }
+            else if (p.center == "." && checkRight && goBottom) {
+                // .-
+                // v
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [-0.5*size, 0].join(",") + " " + [-0.5*size, +0.5*size].join(","));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
+                }
+                go = "bottom";
+            }
+            else if (p.center == "." && checkLeft && goBottom) {
+                // -.
+                //  v
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [0.5*size, 0].join(",") + " " + [0.5*size, +0.5*size].join(","));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
+                }
+                go = "bottom";
+            }
+            else if (p.center == "." && checkTop && goBottom) {
+                // .
+                // |
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " 0");
+                pathObj.path.push("v " + y(0.5));
+                go = theresBottomJump ? "bottom-jump" : "bottom";
+            }
+            else if (p.center == "'" && checkLeft && goTop) {
+                //  ^
+                // -'
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [0.5*size, 0].join(",") + " " + [0.5*size, -0.5*size].join(","));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (-0.5 * scaleDiff).toString());
+                }
+                go = "top";
+            }
+            else if (p.center == "'" && checkRight && goTop) {
+                // ^
+                // '-
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [-0.5*size, 0].join(",") + " " + [-0.5*size, -0.5*size].join(","));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (-0.5 * scaleDiff).toString());
+                }
+                go = "top";
+            }
+            else if ((p.center == "'" && checkTop   && goLeft)
+                     || (p.center == "'" && checkRight && goLeft)) {
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " " + y(-0.5));
+                //   |
+                // <-'
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [0, 0.5*size].join(",") + " " + [-0.5*size, 0.5*size].join(","));
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
+                }
+                go = "left";
+            }
+            else if ((p.center == "'" && checkTop  && goRight)
+                     || (p.center == "'" && checkLeft && goRight)) {
+                // |
+                // '->
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " " + y(-0.5));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [0, 0.5*size].join(",") + " " + [0.5*size, 0.5*size].join(","));
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (0.5 * scaleDiff).toString());
+                }
+                go = "right";
+            }
+            else if (p.center == "'" && checkBottom && goTop) {
+                // |
+                // '
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " 0");
+                pathObj.path.push("v " + y(-0.5));
+                go = theresTopJump ? "top-jump" : "top";
+            }
+            else {
+                done = false;
+                draw = false;
+            }
 
-                if ("id" in tmatches.groups && tmatches.groups.id) {
-                    if (tmatches.groups.id.length > 0) {
-                        boxElem.id = tmatches.groups.id;
-                        spanElem = document.createElement("span");
-                        spanElem.classList.add("DD_ID");
-                        spanElem.textContent    = boxElem.id;
-                        spanElem.style.top      = getYdim(-0.5) + "px";
-                        spanElem.style.zIndex   = zindex;
-                        boxElem.appendChild(spanElem);
-                    }
+            if (done) {
+
+                var fromRet = null;
+
+                switch (go) {
+                case "left":        fromRet = "right";        break;
+                case "left-jump":   fromRet = "right-jump";   break;
+                case "right":       fromRet = "left";         break;
+                case "right-jump":  fromRet = "left-jump";    break;
+                case "top":         fromRet = "bottom";       break;
+                case "top-jump":    fromRet = "bottom-jump";  break;
+                case "bottom":      fromRet = "top";          break;
+                case "bottom-jump": fromRet = "top-jump";     break;
                 }
 
-                if ("classes" in tmatches.groups && tmatches.groups.classes) {
-                    clsList = tmatches.groups.classes.split("-");
-                    for (var cls=0; cls<clsList.length; cls++) {
-                        if (clsList[cls].length > 0)
-                            boxElem.classList.add(clsList[cls]);
-                    }
+                if (go) {
+                    pathObj.points[pathObj.points.length-1].jump = !draw;
                 }
 
+                switch (go) {
+                case "left":        pathObj.points.push({r:r  , c:c-1, jump: null}); break;
+                case "left-jump":   pathObj.points.push({r:r  , c:c-1, jump: null}); break;
+                case "right":       pathObj.points.push({r:r  , c:c+1, jump: null}); break;
+                case "right-jump":  pathObj.points.push({r:r  , c:c+1, jump: null}); break;
+                case "top":         pathObj.points.push({r:r-1, c:c  , jump: null}); break;
+                case "top-jump":    pathObj.points.push({r:r-1, c:c  , jump: null}); break;
+                case "bottom":      pathObj.points.push({r:r+1, c:c  , jump: null}); break;
+                case "bottom-jump": pathObj.points.push({r:r+1, c:c  , jump: null}); break;
+                }
 
-                return true;
+                if (go) {
+                    return getArrows(parseObj, pathObj, from=fromRet);
+                }
+            }
+            else if (from) {
+                if (p.center == ">" && checkLeft) {
+                    pathObj.points[pathObj.points.length-1].jump = false;
+                    pathObj.path.push("h {Math.max(0, parseObj.config.scaleX - strokeWidth)}");
+                    return [pathObj];
+                }
+                else if (p.center == "<" && checkRight) {
+                    pathObj.points[pathObj.points.length-1].jump = false;
+                    pathObj.path.push("h -{Math.max(0, parseObj.config.scaleX - strokeWidth)}")
+                    return [pathObj];
+                }
+                else if (p.center == "^" && checkBottom) {
+                    pathObj.points[pathObj.points.length-1].jump = false;
+                    pathObj.path.push("v -{Math.max(0, parseObj.config.scaleY - strokeWidth)}");
+                    return [pathObj];
+                }
+                else if (p.center == "v" && checkTop) {
+                    pathObj.points[pathObj.points.length-1].jump = false;
+                    pathObj.path.push("v {Math.max(0, parseObj.config.scaleY - strokeWidth)}");
+                    return [pathObj];
+                }
+            }
+            return [];
+        }
+
+
+        var pathObj = {points: [{r:point.r, c:point.c, jump:null}],
+                       path:   []};
+
+        var pathObjList = getArrows(parseObj, pathObj, from=null);
+
+        if (pathObjList.length == 0) {
+            return [];
+        }
+
+        for (var j=0, jlen=pathObjList[0].points.length; j<jlen; j++) {
+            if (!pathObjList[0].points[j].jump) {
+                parseObj.exclude.push([pathObjList[0].points[j].r, pathObjList[0].points[j].c]);
             }
         }
 
-    }
-    return false;
-}
+        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.classList.add("DIASCII_ARROW");
+        svg.style.top      = getY(parseObj, point.r+0.5+opts.padding) + "px";
+        svg.style.left     = getX(parseObj, point.c+opts.padding) + "px";
+        svg.setAttributeNS("http://www.w3.org/2000/xmlns/",
+                           "xmlns:xlink",
+                           "http://www.w3.org/1999/xlink");
 
-function getPoints(m, r, c) {
-    var rm1 = r-1;
-    var rp1 = r+1;
-    var cm1 = c-1;
-    var cp1 = c+1;
-    var ret = {};
-    if (rm1 >= 0 && c < m[rm1].length)       {ret.top = m[rm1][c];}
-    else                                     {ret.top = "";}
-    if (rp1 < m.length && c < m[rp1].length) {ret.bottom = m[rp1][c];}
-    else                                     {ret.bottom = "";}
-    if (cm1 >= 0)                            {ret.left = m[r][cm1];}
-    else                                     {ret.left = "";}
-    if (cp1 < m[r].length)                   {ret.right = m[r][cp1];}
-    else                                     {ret.right = "";}
-    ret.center = m[r][c];
-    return ret;
-}
+        var svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+        svg.appendChild(svgDefs);
 
-function getArrowList(m, r, c, pathList, excludes, excludesLocal, from=null)
-{
-    // Find startpoint
-    var p = getPoints(m, r, c);
-    var fromLeft   = (from == null || from == "left"   || from == "left-jump");
-    var fromRight  = (from == null || from == "right"  || from == "right-jump");
-    var fromBottom = (from == null || from == "bottom" || from == "bottom-jump");
-    var fromTop    = (from == null || from == "top"    || from == "top-jump");
+        var markerID = "diascii_arrow_id" + getID().toString();
 
-    var patternLR = ["<-", "<.", "<'",
-                     "--", "-.", "-'", "->",
-                     ".-", ".'", ".>",
-                     "'-", "'.", "'>"];
-    var patternMaybeLR = ["..", "''"];
-    var patternTB = ["||", "|'", "|v",
-                     ".|", ".v", ".'",
-                     "^|", "^'"];
-    var theresLeft   = (from == "left-jump")
-                    || patternLR.includes(p.left + p.center);
-    var theresRight  = (from == "right-jump")
-                    || patternLR.includes(p.center + p.right);
-    var theresBottom = (from == "bottom-jump")
-                    || patternTB.includes(p.center + p.bottom);
-    var theresTop    = (from == "top-jump")
-                    || patternTB.includes(p.top + p.center);
-
-    if (patternLR.includes(p.left + p.center) && !theresRight)
-        theresLeft = true;
-    if (patternLR.includes(p.center + p.right) && !theresLeft)
-        theresRight = true;
-
-    var theresOnlyLeft   =  theresLeft && !theresRight && !theresBottom && !theresTop;
-    var theresOnlyRight  = !theresLeft &&  theresRight && !theresBottom && !theresTop;
-    var theresOnlyBottom = !theresLeft && !theresRight &&  theresBottom && !theresTop;
-    var theresOnlyTop    = !theresLeft && !theresRight && !theresBottom &&  theresTop;
-
-    var pBegin = (pathList.length == 0);
-
-    var checkLeft   = fromLeft   && (pBegin ? theresOnlyRight  : theresLeft);
-    var checkRight  = fromRight  && (pBegin ? theresOnlyLeft   : theresRight);
-    var checkBottom = fromBottom && (pBegin ? theresOnlyTop    : theresBottom);
-    var checkTop    = fromTop    && (pBegin ? theresOnlyBottom : theresTop);
-
-    var theresLeftJump   = (p.center == "-" || (from == "right-jump"  && p.center == "|")) && p.left  == "|";
-    var theresRightJump  = (p.center == "-" || (from == "left-jump"   && p.center == "|")) && p.right == "|";
-    var theresBottomJump = (p.center == "|" || p.center == "." || (from == "bottom-jump" && p.center == "-")) && p.bottom == "-";
-    var theresTopJump    = (p.center == "|" || p.center == "'" || (from == "top-jump"    && p.center == "-")) && p.top == "-";
-
-    var goLeft   = ((c-1 >= 0) && theresLeft)           || ((c-2 >= 0) && theresLeftJump);
-    var goRight  = ((c+1 < m[r].length) && theresRight) || ((c+2 < m[r].length) && theresRightJump);
-    var goBottom = ((r+1 < m.length) && theresBottom)   || ((r+2 < m.length) && theresBottomJump);
-    var goTop    = ((r-1 >= 0) && theresTop)            || ((r-2 >= 0) && theresTopJump);
-
-    var size = Math.min(DD_SCALE_X, DD_SCALE_Y);
-    var done = true;
-    var draw = true;
-    var go = "";
-
-    if (p.center == "|" && from == "left-jump") {
-        pathList.push("h {Math.max(0, " + getXdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        pathList.push("m {Math.min(2 * DD_ARROW_CROSS_GAP + strokeWidth," + getXdim(1) + ")} 0");
-        pathList.push("h {Math.max(0, " + getXdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        go = "right-jump";
-        draw = false;
-    }
-    else if (p.center == "|" && from == "right-jump") {
-        pathList.push("h {-Math.max(0, " + getXdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        pathList.push("m {-Math.min(2 * DD_ARROW_CROSS_GAP + strokeWidth," + getXdim(1) + ")} 0");
-        pathList.push("h {-Math.max(0, " + getXdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        go = "left-jump";
-        draw = false;
-    }
-    else if (p.center == "-" && from == "bottom-jump") {
-        pathList.push("v   {-Math.max(0, " + getYdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        pathList.push("m 0 {-Math.min(2 * DD_ARROW_CROSS_GAP + strokeWidth," + getYdim(1) + ")}");
-        pathList.push("v   {-Math.max(0, " + getYdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        go = "top-jump";
-        draw = false;
-    }
-    else if (p.center == "-" && from == "top-jump") {
-        pathList.push("v   {Math.max(0, " + getYdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        pathList.push("m 0 {Math.min(2 * DD_ARROW_CROSS_GAP + strokeWidth," + getYdim(1) + ")}");
-        pathList.push("v   {Math.max(0, " + getYdim(0.5) + "- 0.5*strokeWidth - DD_ARROW_CROSS_GAP)}");
-        go = "bottom-jump";
-        draw = false;
-    }
-    else if (p.center == "-" && checkLeft && goRight) {
-        pathList.push("h " + getXdim(1));
-        go = theresRightJump ? "right-jump" : "right";
-    }
-    else if (p.center == "-" && checkRight && goLeft) {
-        if (from == null)
-            pathList.push("m " + getXdim(1) + " 0");
-        pathList.push("h " + getXdim(-1));
-        go = theresLeftJump ? "left-jump" : "left";
-    }
-    else if (p.center == "|" && checkBottom && goTop) {
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(0.5));
-        pathList.push("v " + getYdim(-1));
-        go = theresTopJump ? "top-jump" : "top";
-    }
-    else if (p.center == "|" && checkTop && goBottom) {
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(-0.5));
-        pathList.push("v " + getYdim(1));
-        go = theresBottomJump ? "bottom-jump" : "bottom";
-    }
-    else if ((p.center == "." && checkBottom && goRight)
-          || (p.center == "." && checkLeft   && goRight)) {
-        // .>
-        // |
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(0.5));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (-0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        pathList.push("q " + [0, -0.5*size].join(",") + " " + [0.5*size, -0.5*size].join(","));
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        go = "right";
-    }
-    else if ((p.center == "." && checkBottom && goLeft)
-          || (p.center == "." && checkRight  && goLeft)) {
-        // <.
-        //  |
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(0.5));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (-0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        pathList.push("q " + [0, -0.5*size].join(",") + " " + [-0.5*size, -0.5*size].join(","));
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (-0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        go = "left";
-    }
-    else if (p.center == "." && checkRight && goBottom) {
-        // .-
-        // v
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (-0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        pathList.push("q " + [-0.5*size, 0].join(",") + " " + [-0.5*size, +0.5*size].join(","));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        go = "bottom";
-    }
-    else if (p.center == "." && checkLeft && goBottom) {
-        // -.
-        //  v
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        pathList.push("q " + [0.5*size, 0].join(",") + " " + [0.5*size, +0.5*size].join(","));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        go = "bottom";
-    }
-    else if (p.center == "." && checkTop && goBottom) {
-        // .
-        // |
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(0));
-        pathList.push("v " + getYdim(0.5));
-        go = theresBottomJump ? "bottom-jump" : "bottom";
-    }
-    else if (p.center == "'" && checkLeft && goTop) {
-        //  ^
-        // -'
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        pathList.push("q " + [0.5*size, 0].join(",") + " " + [0.5*size, -0.5*size].join(","));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (-0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        go = "top";
-    }
-    else if (p.center == "'" && checkRight && goTop) {
-        // ^
-        // '-
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (-0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        pathList.push("q " + [-0.5*size, 0].join(",") + " " + [-0.5*size, -0.5*size].join(","));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (-0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        go = "top";
-    }
-    else if ((p.center == "'" && checkTop   && goLeft)
-          || (p.center == "'" && checkRight && goLeft)) {
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(-0.5));
-        //   |
-        // <-'
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        pathList.push("q " + [0, 0.5*size].join(",") + " " + [-0.5*size, 0.5*size].join(","));
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (-0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        go = "left";
-    }
-    else if ((p.center == "'" && checkTop  && goRight)
-          || (p.center == "'" && checkLeft && goRight)) {
-        // |
-        // '->
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(-0.5));
-        if (DD_SCALE_X < DD_SCALE_Y) {
-            pathList.push("v " + (0.5 * (DD_SCALE_Y-DD_SCALE_X)).toString());
-        }
-        pathList.push("q " + [0, 0.5*size].join(",") + " " + [0.5*size, 0.5*size].join(","));
-        if (DD_SCALE_X > DD_SCALE_Y) {
-            pathList.push("h " + (0.5 * (DD_SCALE_X-DD_SCALE_Y)).toString());
-        }
-        go = "right";
-    }
-    else if (p.center == "'" && checkBottom && goTop) {
-        // |
-        // '
-        if (from == null)
-            pathList.push("m " + getXdim(0.5) + " " + getYdim(0));
-        pathList.push("v " + getYdim(-0.5));
-        go = theresTopJump ? "top-jump" : "top";
-    }
-    else {
-        done = false;
-        draw = false;
-    }
-
-    if (done) {
-        if (draw)
-            excludesLocal.push([r, c]);
-        switch (go) {
-        case "left":
-            return getArrowList(m, r,   c-1, pathList, excludes, excludesLocal, from="right");
-        case "left-jump":
-            return getArrowList(m, r,   c-1, pathList, excludes, excludesLocal, from="right-jump");
-        case "right":
-            return getArrowList(m, r,   c+1, pathList, excludes, excludesLocal, from="left");
-        case "right-jump":
-            return getArrowList(m, r,   c+1, pathList, excludes, excludesLocal, from="left-jump");
-        case "top":
-            return getArrowList(m, r-1, c  , pathList, excludes, excludesLocal, from="bottom");
-        case "top-jump":
-            return getArrowList(m, r-1, c  , pathList, excludes, excludesLocal, from="bottom-jump");
-        case "bottom":
-            return getArrowList(m, r+1, c  , pathList, excludes, excludesLocal, from="top");
-        case "bottom-jump":
-            return getArrowList(m, r+1, c  , pathList, excludes, excludesLocal, from="top-jump");
-        }
-    }
-    else if (!pBegin) {
-        if (p.center == ">" && checkLeft) {
-            excludesLocal.push([r, c]);
-            concatExclude(excludes, excludesLocal);
-            return [p.center, pathList];
-        }
-        else if (p.center == "<" && checkRight) {
-            excludesLocal.push([r, c]);
-            concatExclude(excludes, excludesLocal);
-            return [p.center, pathList];
-        }
-        else if (p.center == "^" && checkBottom) {
-            excludesLocal.push([r, c]);
-            concatExclude(excludes, excludesLocal);
-            return [p.center, pathList];
-        }
-        else if (p.center == "v" && checkTop) {
-            excludesLocal.push([r, c]);
-            concatExclude(excludes, excludesLocal);
-            return [p.center, pathList];
-        }
-    }
-    return ["", null];
-}
-
-function ddParseArrow(elem, m, r, c, zindex, excludes, orig)
-{
-    let lastString, pList;
-    [lastString, pList] = getArrowList(m, r, c, [], excludes, []);
-    if (pList != null) {
-        svgElem = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svgElem.classList.add("DD_ARROW");
-        svgElem.style.display  = "block";
-        svgElem.style.overflow = "visible";
-        svgElem.style.position = "absolute";
-        svgElem.style.top      = getYdim(r+0.5+orig[1]) + "px";
-        svgElem.style.left     = getXdim(c+orig[0]) + "px";
-        svgElem.setAttributeNS("http://www.w3.org/2000/xmlns/",
-                               "xmlns:xlink",
-                               "http://www.w3.org/1999/xlink");
-
-        svgDefs   = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        svgElem.appendChild(svgDefs);
-
-        svgMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        svgMarker.setAttribute("id", "arrowhead" + DD_ID_NUM.toString());
+        var svgMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+        svgMarker.setAttribute("id", markerID);
         svgMarker.setAttribute("markerWidth",  "1");
         svgMarker.setAttribute("markerHeight", "2");
         svgMarker.setAttribute("refX", "0");
         svgMarker.setAttribute("refY", "1");
         svgMarker.setAttribute("orient", "auto");
-        svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+
+        var svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
         svgPolygon.setAttribute("points", "0,0 1,1 0,2");
         svgMarker.appendChild(svgPolygon);
         svgDefs.appendChild(svgMarker);
 
         svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        svgPath.setAttribute("marker-end", "url(#arrowhead" + DD_ID_NUM.toString() + ")");
+        svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
 
-        DD_ID_NUM++;
+        svg.appendChild(svgPath);
 
-        svgElem.appendChild(svgPath);
-        elem.appendChild(svgElem);
+        callback = {
+            parseObj: parseObj,
+            pathObj: pathObjList[0],
+            svgPath: svgPath,
+            svgMarker: svgMarker,
+            run: function() {
+                var cssObj      = window.getComputedStyle(this.svgPath, null);
+                var strokeWidth = parseInt(cssObj.strokeWidth, 10);
+                var strokeColor = cssObj.stroke;
 
-        var cssObj      = window.getComputedStyle(svgPath, null);
-        var strokeWidth = parseInt(cssObj.strokeWidth, 10);
-        var strokeColor = cssObj.stroke;
+                this.svgMarker.style.fill = strokeColor;
 
-        svgMarker.style.fill = strokeColor;
+                for (var i=0, ilen=this.pathObj.path.length; i<ilen; i++) {
+                    regExp = this.pathObj.path[i].match(/(^.*){([^}]*)}(.*$)/);
+                    if (regExp) {
+                        expr = regExp[2];
+                        f = window.Function('"use strict"; return function(parseObj, strokeWidth){return (' + expr + ')}')();
+                        exprEval = f(this.parseObj, strokeWidth);
+                        this.pathObj.path[i] = regExp[1] + exprEval + regExp[3];
+                    }
+                }
+                this.svgPath.setAttribute("d", "m 0 0 " + this.pathObj.path.join(" "));
+            }
+        };
 
-        if (DD_SCALE_X-strokeWidth > 0) {
-            if (lastString == ">") pList.push("h " + (DD_SCALE_X-strokeWidth).toString());
-            if (lastString == "<") pList.push("h " + (-(DD_SCALE_X-strokeWidth)).toString());
+        return [{elem: svg, callback: callback}];
+    }
+
+    function setAlignClasses(parseObj, elem, coord) {
+        var align_right  = coord[1].c == getWidth(parseObj.m) - 1;
+        var align_left   = coord[0].c == 0;
+        var align_top    = coord[0].r == 0;
+        var align_bottom = coord[1].r == parseObj.m.length-1;
+
+        var width  = coord[1].c - coord[0].c + 1;
+        var height = coord[1].r - coord[0].r + 1;
+
+        if (align_right ) elem.classList.add(_lib.classes.align.right);
+        if (align_left  ) elem.classList.add(_lib.classes.align.left);
+        if (align_top   ) elem.classList.add(_lib.classes.align.top);
+        if (align_bottom) elem.classList.add(_lib.classes.align.bottom);
+
+        if (align_right || align_left || align_top || align_bottom) {
+            elem.classList.add(_lib.classes.align.border);
         }
-        if (DD_SCALE_Y-strokeWidth > 0) {
-            if (lastString == "^") pList.push("v " + (-(DD_SCALE_Y-strokeWidth)).toString());
-            if (lastString == "v") pList.push("v " + (DD_SCALE_Y-strokeWidth).toString());
-        }
 
-        for (var i=0; i<pList.length; i++) {
-            regExp = pList[i].match(/(^.*){([^}]*)}(.*$)/);
-            if (regExp) {
-                expr = regExp[2];
-                console.log(expr);
-                f = window.Function('"use strict"; return function(strokeWidth){return (' + expr + ')}')();
-                exprEval = f(strokeWidth=strokeWidth);
-                pList[i] = regExp[1] + exprEval + regExp[3];
+        var diffSpaceLR = Math.abs((parseObj.m[point.r].length-1-coord[1].c) - coord[0].c);
+        var diffSpaceTB = Math.abs((parseObj.m.length-1-coord[1].r)-coord[0].r);
+
+        if (diffSpaceLR <= 1) elem.classList.add(_lib.classes.align.hcenterish);
+        if (diffSpaceLR == 0) elem.classList.add(_lib.classes.align.hcenter);
+        if (diffSpaceTB <= 1) elem.classList.add(_lib.classes.align.vcenterish);
+        if (diffSpaceTB == 0) elem.classList.add(_lib.classes.align.vcenter);
+
+        if (diffSpaceLR + diffSpaceTB <= 1) elem.classList.add(_lib.classes.align.centerish);
+        if (diffSpaceLR + diffSpaceTB == 0) elem.classList.add(_lib.classes.align.center);
+    }
+
+    function parseText(parseObj, point, opts) {
+        var textSlice = parseObj.m[point.r].slice(point.c);
+        var textMatch = textSlice.match(_lib.regexp.text);
+        if (textMatch) {
+            var tmatch = textMatch[0];
+            var lcolon = tmatch.startsWith(":");
+            var rcolon = tmatch.endsWith(":");
+            var coord  = [{r: point.r, c: point.c},
+                          {r: point.r, c: point.c+tmatch.length-1}]
+
+            var left   = 0.5 * (coord[0].c + coord[1].c) + 0.5 + opts.padding;
+            var top    = coord[0].r + 0.5 + opts.padding;
+
+            var span = document.createElement("span");
+            span.classList.add(_lib.classes.text.normal);
+            if      ( lcolon && !rcolon) span.classList.add(_lib.classes.text.lcolon);
+            else if (!lcolon &&  rcolon) span.classList.add(_lib.classes.text.rcolon);
+            else if ( lcolon &&  rcolon) span.classList.add(_lib.classes.text.colons);
+
+            setAlignClasses(parseObj, span, coord);
+
+            span.textContent    = textMatch[1];
+            span.style.top      = getY(parseObj, top) + "px";
+            span.style.left     = getX(parseObj, left) + "px";
+            for (var c=point.c, clen=point.c+tmatch.length; c<clen; c++) {
+                parseObj.exclude.push([point.r, c]);
+            }
+            return [{elem: span, callback: null}];
+        }
+        return []
+    }
+
+    function parseBox(parseObj, point, opts) {
+        var rowSlice = parseObj.m[point.r].slice(point.c);
+        var topMatch = rowSlice.match(_lib.regexp.box.top);
+
+        if (topMatch) {
+            var tmatch = topMatch[0];
+            var coord  = [{r: point.r,   c: point.c},
+                          {r: point.r+1, c: point.c+tmatch.length-1}];
+            for (var rmax=parseObj.m.length; coord[1].r<rmax; coord[1].r++) {
+                var rowSlice    = parseObj.m[coord[1].r].slice(coord[0].c, coord[1].c+1);
+                var middleMatch = rowSlice.match(_lib.regexp.box.middle);
+                var bottomMatch = rowSlice.match(_lib.regexp.box.bottom);
+                if (!middleMatch && !bottomMatch) {
+                    break;
+                }
+                if (middleMatch && middleMatch[0].length == tmatch.length) {
+                    continue;
+                }
+                if (bottomMatch && bottomMatch[0].length == tmatch.length) {
+                    var width  = coord[1].c - coord[0].c;
+                    var left   = coord[0].c + 0.5 + opts.padding;
+                    var height = coord[1].r - coord[0].r;
+                    var top    = coord[0].r + 0.5 + opts.padding;
+
+                    // return
+                    var box = document.createElement("div");
+                    box.classList.add(_lib.classes.box);
+                    box.style.top    = getY(parseObj, top)    + "px";
+                    box.style.height = getY(parseObj, height) + "px";
+                    box.style.left   = getX(parseObj, left)   + "px";
+                    box.style.width  = getX(parseObj, width)  + "px";
+
+                    setAlignClasses(parseObj, box, coord);
+
+                    // Retrieve internal content
+                    var m = [];
+                    for (var r=point.r; r<point.r+height+1; r++) {
+                        if (r > point.r && r < point.r+height) {
+                            m.push(parseObj.m[r].slice(coord[0].c+1, coord[1].c));
+                        }
+                        for (var c=point.c; c<point.c+width+1; c++) {
+                            parseObj.exclude.push([r, c]);
+                        }
+                    }
+                    box.textContent = "";
+                    var parseObjInner = {
+                        config:  parseObj.config,
+                        m:       m,
+                        width:   width,
+                        height:  height,
+                        exclude: []
+                    }
+                    var parsedElems = parse(parseObjInner, opts={padding:0.5});
+                    for (var i=0, len=parsedElems.length; i<len; i++) {
+                        box.appendChild(parsedElems[i].elem);
+                    }
+
+                    var parseElemsCallback = {
+                        parsedElems: parsedElems,
+                        run : function() {
+                            for (var i=0, len=this.parsedElems.length; i<len; i++) {
+                                if (this.parsedElems[i].callback) {
+                                    this.parsedElems[i].callback.run();
+                                }
+                            }
+                        }
+                    };
+
+                    if ("id" in topMatch.groups && topMatch.groups.id) {
+                        if (topMatch.groups.id.length > 0) {
+                            box.id = topMatch.groups.id;
+                            var span = document.createElement("span");
+                            span.classList.add(_lib.classes.id);
+                            span.textContent = box.id;
+                            box.appendChild(span);
+                        }
+                    }
+
+                    if ("classes" in topMatch.groups && topMatch.groups.classes) {
+                        classes = topMatch.groups.classes.split("-");
+                        for (var i=0, clen=classes.length; i<clen; i++) {
+                            if (classes[i].length > 0) {
+                                if (i == 0) {
+                                    var span = document.createElement("span");
+                                    span.classList.add(_lib.classes.class0);
+                                    span.textContent = classes[i];
+                                    box.appendChild(span);
+                                }
+                                box.classList.add(classes[i]);
+                            }
+                        }
+                    }
+
+                    return [{elem: box, callback: parseElemsCallback}];
+                }
+            }
+
+        }
+        return [];
+    }
+
+    function parse(parseObj, opts={padding:0}) {
+        var parseFuncList = [parseBox,
+                             parseArrow,
+                             parseText];
+
+        var parsedObjList = [];
+
+        for (var p=0, plen=parseFuncList.length; p<plen; p++) {
+            for (var r=0, rlen=parseObj.m.length; r<rlen; r++) {
+                for (var c=0, clen=parseObj.m[r].length; c<clen; c++) {
+                    if (parseObj.exclude.some(i => {return i[0] == r && i[1] == c})) continue;
+                    point = {r:r, c:c};
+                    parsedObjList.push.apply(parsedObjList, parseFuncList[p](parseObj, point, opts));
+                }
             }
         }
 
-        svgPath.setAttribute("d", "m 0 0 " + pList.join(" "));
-
-        return true;
+        return parsedObjList;
     }
-    return false;
-}
 
-function ddParseText(elem, m, r, c, zindex, excludes, orig)
-{
-    var tcontent = m[r].slice(c);
-    var tmatches = tcontent.match(DD_PLAIN_TEXT);
-    if (tmatches != null) {
-        var tmatch = tmatches[0];
-        var ldots = tmatches[0].startsWith(":");
-        var rdots = tmatches[0].endsWith(":");
-        var spanCenter = [r+0.5+orig[0], c+(tmatch.length/2)+orig[1]];
+    function main() {
+        var elems = document.getElementsByTagName("diascii");
+        for (var i=0, ilen=elems.length; i<ilen; i++) {
+            var elem = elems[i];
 
-        spanElem = document.createElement("span");
-        spanElem.classList.add("DD_PLAIN_TEXT");
-        if (ldots && !rdots)
-            spanElem.classList.add("DD_LDOTS");
-        else if (!ldots && rdots)
-            spanElem.classList.add("DD_RDOTS");
-        else if (ldots && rdots)
-            spanElem.classList.add("DD_DOTS");
+            // Delete the first and the last new lines (if any)
+            elem.textContent = elem.textContent.replace(/(^\n)|(\n *$)/g,"");
 
-        if (c+tmatch.length==m[r].length)
-            spanElem.classList.add("DD_ALIGN_RIGHT");
-        if (c==0)
-            spanElem.classList.add("DD_ALIGN_LEFT");
-        if (r==0)
-            spanElem.classList.add("DD_ALIGN_TOP");
-        if (r==m.length-1)
-            spanElem.classList.add("DD_ALIGN_BOTTOM");
+            var m = elem.textContent.split("\n");
+            elem.textContent = "";
+            var height = m.length;
+            var width  = getWidth(m);
 
-        diffSpaceLR = Math.abs((m[r].length-(tmatch.length+c)) - c);
-        diffSpaceTB = Math.abs((m.length-r-1)-r);
+            var parseObj = {
+                config:  loadConfig(elem),
+                m:       m,
+                width:   width,
+                height:  height,
+                exclude: []
+            }
 
-        if (diffSpaceLR <= 1)
-            spanElem.classList.add("DD_ALIGN_HCENTRISH");
-        if (diffSpaceLR == 0)
-            spanElem.classList.add("DD_ALIGN_HCENTER");
+            elem.style.width  = getX(parseObj, width)  + "px";
+            elem.style.height = getY(parseObj, height) + "px";
 
-        if (diffSpaceTB <= 1)
-            spanElem.classList.add("DD_ALIGN_VCENTRISH");
-        if (diffSpaceTB == 0)
-            spanElem.classList.add("DD_ALIGN_VCENTER");
-
-        if (diffSpaceLR + diffSpaceTB <= 1)
-            spanElem.classList.add("DD_ALIGN_CENTERISH");
-        if (diffSpaceLR + diffSpaceTB == 0)
-            spanElem.classList.add("DD_ALIGN_CENTER");
-
-        spanElem.style.position = "absolute";
-        spanElem.textContent    = tmatches[1];
-        spanElem.style.top      = getYdim(spanCenter[0]) + "px";
-        spanElem.style.left     = getXdim(spanCenter[1]) + "px";
-        spanElem.style.zIndex   = zindex;
-        elem.appendChild(spanElem);
-        for (var cbox=c; cbox<c+tmatch.length; cbox++) {
-            addExclude(excludes, r, cbox);
-        }
-    }
-}
-
-function ddParseInnerText(elem, zindex, orig)
-{
-    // Get string matrix and initialise dimensions
-    var m = elem.textContent.split("\n");
-    elem.textContent = "";
-
-    var excludes = [];
-
-    var parseList = [ddParseRoundedBox,
-                     ddParseArrow,
-                     ddParseText];
-
-    for (var p=0; p<parseList.length; p++) {
-        for (var r=0; r<m.length; r++) {
-            for (var c=0; c<m[r].length; c++) {
-                if (excludes.some(i => {return i[0] == r && i[1] == c})) continue;
-//                if (r==7 && c==20 && parseList[p] == ddParseArrow && excludes.length > 0) debugger;
-                parseList[p](elem, m, r, c, zindex, excludes, orig);
+            var parsedObjList = parse(parseObj);
+            for (var j=0, jlen=parsedObjList.length; j<jlen; j++) {
+                elem.appendChild(parsedObjList[j].elem);
+                if (parsedObjList[j].callback) {
+                    parsedObjList[j].callback.run();
+                }
             }
         }
+
     }
-}
 
-function diasciiParse(elem)
-{
-    elem.textContent = elem.textContent.replace(/(^\n)|(\n *$)/g,"");
-    var m = elem.textContent.split("\n");
-    var elemWidth   = 0;
-    var elemHeight  = m.length;
-    for (var r=0; r<m.length; r++) {
-        elemWidth = Math.max(elemWidth, m[r].length);
-    }
-    elem.style.width  = getXdim(elemWidth)  + "px";
-    elem.style.height = getYdim(elemHeight) + "px";
-
-    ddParseInnerText(elem, 0, [0, 0]);
-}
-
-var diasciiList = document.getElementsByTagName("diascii");
-
-for (var i=0; i<diasciiList.length; i++) {
-    diasciiParse(diasciiList[i]);
-}
+    document.addEventListener('DOMContentLoaded', main);
+})();

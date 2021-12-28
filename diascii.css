@@ -1,29 +1,58 @@
 diascii {
+    /* Scale div's size. Without scaling, each character in the diagram
+   represents a 1px box. Scaling to 10px x 25px to make it close to
+   monospace size. */
+    --diascii-scale-x: 10;
+    --diascii-scale-y: 25;
+    /* Scale the gap between two crossing arrows that do not intersect */
+    --diascii-scale-arrow-gap: 2;
+
+
     position: relative;
     display: block;
     overflow: visible;
     margin:0 auto;
 }
 
-diascii .DD_ROUNDED_BOX {
+diascii.DIASCII_DEBUG {
+    background-size: calc(var(--diascii-scale-x) * 1px) calc(var(--diascii-scale-y) * 1px);
+    background-image:
+        linear-gradient(to right, rgba(0, 0, 0, 0.2) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.2) 1px, transparent 1px);
+}
+
+diascii div.DIASCII_BOX {
     position:absolute;
 }
 
-diasciis svg.DD_ARROW marker {
+diascii span.DIASCII_TEXT {
+    font-size: calc(var(--diascii-scale-y) * 0.7 * 1px);
+    font-weight: 500;
+}
+
+diascii svg.DIASCII_ARROW {
+    display: block;
+    position: absolute;
+    overflow: visible;
+}
+
+diasciis svg.DIASCII_ARROW marker {
     stroke: none;
 }
 
-diascii svg.DD_ARROW path {
+diascii svg.DIASCII_ARROW path {
     fill: none;
 }
 
-diascii .DD_PLAIN_TEXT, diascii .DD_ID {
+diascii span.DIASCII_TEXT, diascii span.DIASCII_ID {
+    position:absolute;
     align-items: center;
     text-align: center;
     transform: translate(-50%, -50%);
 }
 
-diascii .DD_ID {
+diascii span.DIASCII_ID,
+diascii span.DIASCII_CLASS0 {
     display:none;
     position:absolute;
     left:50%;
@@ -31,13 +60,13 @@ diascii .DD_ID {
 }
 
 
-diascii .DD_ROUNDED_BOX .DD_DOTS,
-diascii .DD_ROUNDED_BOX .DD_ALIGN_CENTRISH {
+diascii div.DIASCII_BOX span.DIASCII_TEXT_COLONS,
+diascii div.DIASCII_BOX span.DIASCII_ALIGN_CENTERISH {
     top:50%!important;
     left:50%!important;
 }
 
-diascii .DD_ROUNDED_BOX .DD_ALIGN_RIGHT {
+diascii div.DIASCII_BOX span.DIASCII_ALIGN_RIGHT {
     right:-5px!important;
     left:unset!important;
 }
