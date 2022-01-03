@@ -1,9 +1,9 @@
 diascii {
     /* Scale div's size. Without scaling, each character in the diagram
-   represents a 1px box. Scaling to 10px x 25px to make it close to
+   represents a 1px box. Scaling to 10px x 22px to make it close to
    monospace size. */
     --diascii-scale-x: 10;
-    --diascii-scale-y: 25;
+    --diascii-scale-y: 22;
     /* Scale the gap between two crossing arrows that do not intersect */
     --diascii-scale-arrow-gap: 2;
 
