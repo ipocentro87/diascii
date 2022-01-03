@@ -24,20 +24,22 @@
       body {
           font-family: Source Sans Pro;
           font-size: 18px;
-          padding: 0 100px;
+          padding: 20px;
           text-align: justify;
           background-color: #eee;
       }
 
       div.hstack {
           display: flex;
+          flex-wrap: wrap;
 	      flex-direction: row;
 	      align-items: center;
 	      justify-content: center;
+          gap:20px;
       }
 
       div.hstack > * {
-          margin:0 0 0 20px;
+          margin:0;
       }
 
       div.hstack:first-child {
@@ -46,6 +48,7 @@
 
       div#container {
           width:700px;
+          max-width:100%;
           margin-left:auto;
           margin-right:auto;
       }
@@ -85,16 +88,12 @@
       .------------.
 ----->|  Example   |----->
       '------------'</pre>
-
         <diascii>
       .------------.
 ----->|  Example   |----->
       '------------'
         </diascii>
       </div>
-
-      <p>The ASCII-art's examples that follow are no longer shown, as
-      they can be seen in the source code.</p>
 
       <h3>Box objects</h3>
 
@@ -156,7 +155,38 @@
               '----------'
       </diascii>
 
+      <p>Any box can be associated with classes or an id:</p>
+      <diascii id="box-objects-3">
+.-#foo-bar0-bar1-.
+|     Foo box    |
+'----------------'
+      </diascii>
 
+      <p>Arrows can cross one above the others:</p>
+      <diascii id="arrows-1">
+                       .-----.
+.---.  .> F  D <-.     |   .---.
+| A | -------|---|-------> | B |
+'---'  '- E <'   '- C <'   '---'
+      </diascii>
+
+      <p>Here a more complex example:</p>
+      <diascii id="arrows-2" style="margin-top:40px;">
+  ^ | .-
+'---|-|->
+<--------
+<-|-|--.
+ -' v v
+      </diascii>
+
+<div style="display:none">
+      <p>Arrows can have multiple start or end points:</p>
+      <diascii id="arrows-3">
+a ---> A -.      .-> x -+-> X
+   .-> B  +-> O -+-> y  '-> Y
+b -+-> C -'      '-> z ---> Z
+      </diascii>
+</div>
 
 <!--     <h3>First example</h3> -->
 
