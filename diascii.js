@@ -39,13 +39,19 @@
             patternLR:      ["<-", "<.", "<'",
                              "--", "-.", "-'", "->",
                              ".-", ".'", ".>",
-                             "'-", "'.", "'>"],
+                             "'-", "'.", "'>",
+                             //
+                             "<+", "-+", "+-", "+>",
+                             ".+", "+.", "'+", "+'"],
             patternLRJump: ["-|",
                             "|-"],
             // patternLRMaybe: ["..", "''"],
             patternTB:      ["||", "|'", "|v",
                              ".|", ".v", ".'",
-                             "^|", "^'"],
+                             "^|", "^'",
+                             //
+                             "+|", "|+", "+'", "+v",
+                             ".+", "^+"],
             patternTBJump: ["-|", "-'",
                             ".-", "|-"],
         }
@@ -108,6 +114,17 @@
             return ret;
         }
 
+        function copyPathObj(pathObj) {
+            var copiedPathObj = {points: [], path: []};
+            for (var i=0, ilen=pathObj.points.length; i<ilen; i++) {
+                copiedPathObj.points.push({r: pathObj.points[i].r,
+                                           c: pathObj.points[i].c,
+                                           jump: pathObj.points[i].jump});
+            }
+            copiedPathObj.path = [...pathObj.path];
+            return copiedPathObj;
+        }
+
         function getArrows(parseObj, pathObj, from=null)
         {
             var arrows = [];
@@ -117,6 +134,25 @@
             var c = lastPoint.c;
 
             var p = getSurroundingPoints(parseObj, lastPoint);
+
+            if (p.center == "+") {
+                var substituteChars = ".-'|";
+                var retList = [];
+                if (r == 2 && c == 3) debugger;
+                for (var i=0, ilen=substituteChars.length; i<ilen; i++) {
+                    var parseObjCopy = copyParseObj(parseObj);
+                    var pathObjCopy =  copyPathObj(pathObj);
+                    parseObjCopy.m[r] = parseObjCopy.m[r].substring(0, c)
+                                      + substituteChars[i]
+                                      + parseObjCopy.m[r].substring(c+1);
+                    ret = getArrows(parseObjCopy, pathObjCopy, from);
+                    if (ret.length > 0) {
+                        retList.push.apply(retList, ret);
+                    }
+                }
+                return retList;
+            }
+
             var fromLeft   = (from == null || from == "left"   || from == "left-jump");
             var fromRight  = (from == null || from == "right"  || from == "right-jump");
             var fromBottom = (from == null || from == "bottom" || from == "bottom-jump");
@@ -150,10 +186,10 @@
             var checkTop    = fromTop    && (from ? theresTop    : (theresOnlyBottom || theresOnlyBottomJump));
 
 
-            var goLeft   = ((c-1 >= 0) && theresLeft)           || ((c-2 >= 0) && theresLeftJump);
-            var goRight  = ((c+1 < m[r].length) && theresRight) || ((c+2 < m[r].length) && theresRightJump);
-            var goBottom = ((r+1 < m.length) && theresBottom)   || ((r+2 < m.length) && theresBottomJump);
-            var goTop    = ((r-1 >= 0) && theresTop)            || ((r-2 >= 0) && theresTopJump);
+            var goLeft   = ((c-1 >= 0) && theresLeft)           || ((c-2 >= 0)          && (from ? theresLeftJump   : theresOnlyLeftJump));
+            var goRight  = ((c+1 < m[r].length) && theresRight) || ((c+2 < m[r].length) && (from ? theresRightJump  : theresOnlyRightJump));
+            var goBottom = ((r+1 < m.length) && theresBottom)   || ((r+2 < m.length)    && (from ? theresBottomJump : theresOnlyBottomJump));
+            var goTop    = ((r-1 >= 0) && theresTop)            || ((r-2 >= 0)          && (from ? theresTopJump    : theresOnlyTopJump));
 
             var size      = Math.min(parseObj.config.scaleX, parseObj.config.scaleY);
             var scaleDiff = Math.abs(parseObj.config.scaleX-parseObj.config.scaleY);
@@ -216,6 +252,38 @@
                 pathObj.path.push("v " + y(1));
                 go = theresBottomJump ? "bottom-jump" : "bottom";
             }
+            else if (p.center == "." && checkRight && goBottom) {
+                // .-
+                // v
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [-0.5*size, 0].join(",") + " " + [-0.5*size, +0.5*size].join(","));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
+                }
+                go = theresBottomJump ? "bottom-jump" : "bottom";
+            }
+            else if (p.center == "." && checkLeft && goBottom) {
+                // -.
+                //  v
+                if (scaleXgtY) {
+                    pathObj.path.push("h " + (0.5 * scaleDiff).toString());
+                }
+                pathObj.path.push("q " + [0.5*size, 0].join(",") + " " + [0.5*size, +0.5*size].join(","));
+                if (scaleXltY) {
+                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
+                }
+                go = theresBottomJump ? "bottom-jump" : "bottom";
+            }
+            else if (p.center == "." && checkTop && goBottom) {
+                // .
+                // |
+                if (from == null)
+                    pathObj.path.push("m " + x(0.5) + " 0");
+                pathObj.path.push("v " + y(0.5));
+                go = theresBottomJump ? "bottom-jump" : "bottom";
+            }
             else if ((p.center == "." && checkBottom && goRight)
                      || (p.center == "." && checkLeft   && goRight)) {
                 // .>
@@ -229,7 +297,7 @@
                 if (scaleXgtY) {
                     pathObj.path.push("h " + (0.5 * scaleDiff).toString());
                 }
-                go = "right";
+                go = theresRightJump ? "right-jump" : "right";
             }
             else if ((p.center == "." && checkBottom && goLeft)
                      || (p.center == "." && checkRight  && goLeft)) {
@@ -244,39 +312,7 @@
                 if (scaleXgtY) {
                     pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
                 }
-                go = "left";
-            }
-            else if (p.center == "." && checkRight && goBottom) {
-                // .-
-                // v
-                if (scaleXgtY) {
-                    pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
-                }
-                pathObj.path.push("q " + [-0.5*size, 0].join(",") + " " + [-0.5*size, +0.5*size].join(","));
-                if (scaleXltY) {
-                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
-                }
-                go = "bottom";
-            }
-            else if (p.center == "." && checkLeft && goBottom) {
-                // -.
-                //  v
-                if (scaleXgtY) {
-                    pathObj.path.push("h " + (0.5 * scaleDiff).toString());
-                }
-                pathObj.path.push("q " + [0.5*size, 0].join(",") + " " + [0.5*size, +0.5*size].join(","));
-                if (scaleXltY) {
-                    pathObj.path.push("v " + (0.5 * scaleDiff).toString());
-                }
-                go = "bottom";
-            }
-            else if (p.center == "." && checkTop && goBottom) {
-                // .
-                // |
-                if (from == null)
-                    pathObj.path.push("m " + x(0.5) + " 0");
-                pathObj.path.push("v " + y(0.5));
-                go = theresBottomJump ? "bottom-jump" : "bottom";
+                go = theresLeftJump ? "left-jump" : "left";
             }
             else if (p.center == "'" && checkLeft && goTop) {
                 //  ^
@@ -288,7 +324,7 @@
                 if (scaleXltY) {
                     pathObj.path.push("v " + (-0.5 * scaleDiff).toString());
                 }
-                go = "top";
+                go = theresTopJump ? "top-jump" : "top";
             }
             else if (p.center == "'" && checkRight && goTop) {
                 // ^
@@ -300,7 +336,7 @@
                 if (scaleXltY) {
                     pathObj.path.push("v " + (-0.5 * scaleDiff).toString());
                 }
-                go = "top";
+                go = theresTopJump ? "top-jump" : "top";
             }
             else if ((p.center == "'" && checkTop   && goLeft)
                      || (p.center == "'" && checkRight && goLeft)) {
@@ -315,7 +351,7 @@
                 if (scaleXgtY) {
                     pathObj.path.push("h " + (-0.5 * scaleDiff).toString());
                 }
-                go = "left";
+                go = theresLeftJump ? "left-jump" : "left";
             }
             else if ((p.center == "'" && checkTop  && goRight)
                      || (p.center == "'" && checkLeft && goRight)) {
@@ -330,7 +366,7 @@
                 if (scaleXgtY) {
                     pathObj.path.push("h " + (0.5 * scaleDiff).toString());
                 }
-                go = "right";
+                go = theresRightJump ? "right-jump" : "right";
             }
             else if (p.center == "'" && checkBottom && goTop) {
                 // |
@@ -410,73 +446,72 @@
 
         var pathObjList = getArrows(parseObj, pathObj, from=null);
 
-        if (pathObjList.length == 0) {
-            return [];
-        }
-
-        for (var j=0, jlen=pathObjList[0].points.length; j<jlen; j++) {
-            if (!pathObjList[0].points[j].jump) {
-                parseObj.exclude.push([pathObjList[0].points[j].r, pathObjList[0].points[j].c]);
-            }
-        }
-
-        var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-        svg.classList.add("DIASCII_ARROW");
-        svg.style.top      = getY(parseObj, point.r+0.5+opts.padding) + "px";
-        svg.style.left     = getX(parseObj, point.c+opts.padding) + "px";
-        svg.setAttributeNS("http://www.w3.org/2000/xmlns/",
-                           "xmlns:xlink",
-                           "http://www.w3.org/1999/xlink");
-
-        var svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        svg.appendChild(svgDefs);
-
-        var markerID = "diascii_arrow_id" + getID().toString();
-
-        var svgMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
-        svgMarker.setAttribute("id", markerID);
-        svgMarker.setAttribute("markerWidth",  "1");
-        svgMarker.setAttribute("markerHeight", "2");
-        svgMarker.setAttribute("refX", "0");
-        svgMarker.setAttribute("refY", "1");
-        svgMarker.setAttribute("orient", "auto");
-
-        var svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        svgPolygon.setAttribute("points", "0,0 1,1 0,2");
-        svgMarker.appendChild(svgPolygon);
-        svgDefs.appendChild(svgMarker);
-
-        svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
-
-        svg.appendChild(svgPath);
-
-        callback = {
-            parseObj: parseObj,
-            pathObj: pathObjList[0],
-            svgPath: svgPath,
-            svgMarker: svgMarker,
-            run: function() {
-                var cssObj      = window.getComputedStyle(this.svgPath, null);
-                var strokeWidth = parseInt(cssObj.strokeWidth, 10);
-                var strokeColor = cssObj.stroke;
-
-                this.svgMarker.style.fill = strokeColor;
-
-                for (var i=0, ilen=this.pathObj.path.length; i<ilen; i++) {
-                    regExp = this.pathObj.path[i].match(/(^.*){([^}]*)}(.*$)/);
-                    if (regExp) {
-                        expr = regExp[2];
-                        f = window.Function('"use strict"; return function(parseObj, strokeWidth){return (' + expr + ')}')();
-                        exprEval = f(this.parseObj, strokeWidth);
-                        this.pathObj.path[i] = regExp[1] + exprEval + regExp[3];
-                    }
+        var ret = [];
+        for (var i=0, ilen=pathObjList.length; i<ilen; i++) {
+            for (var j=0, jlen=pathObjList[i].points.length; j<jlen; j++) {
+                if (!pathObjList[i].points[j].jump) {
+                    parseObj.exclude.push([pathObjList[i].points[j].r, pathObjList[i].points[j].c]);
                 }
-                this.svgPath.setAttribute("d", "m 0 0 " + this.pathObj.path.join(" "));
             }
-        };
 
-        return [{elem: svg, callback: callback}];
+            var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            svg.classList.add("DIASCII_ARROW");
+            svg.style.top      = getY(parseObj, point.r+0.5+opts.padding) + "px";
+            svg.style.left     = getX(parseObj, point.c+opts.padding) + "px";
+            svg.setAttributeNS("http://www.w3.org/2000/xmlns/",
+                               "xmlns:xlink",
+                               "http://www.w3.org/1999/xlink");
+
+            var svgDefs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+            svg.appendChild(svgDefs);
+
+            var markerID = "diascii_arrow_id" + getID().toString();
+
+            var svgMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            svgMarker.setAttribute("id", markerID);
+            svgMarker.setAttribute("markerWidth",  "1");
+            svgMarker.setAttribute("markerHeight", "2");
+            svgMarker.setAttribute("refX", "0");
+            svgMarker.setAttribute("refY", "1");
+            svgMarker.setAttribute("orient", "auto");
+
+            var svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+            svgPolygon.setAttribute("points", "0,0 1,1 0,2");
+            svgMarker.appendChild(svgPolygon);
+            svgDefs.appendChild(svgMarker);
+
+            svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
+
+            svg.appendChild(svgPath);
+
+            callback = {
+                parseObj: parseObj,
+                pathObj: pathObjList[i],
+                svgPath: svgPath,
+                svgMarker: svgMarker,
+                run: function() {
+                    var cssObj      = window.getComputedStyle(this.svgPath, null);
+                    var strokeWidth = parseInt(cssObj.strokeWidth, 10);
+                    var strokeColor = cssObj.stroke;
+
+                    this.svgMarker.style.fill = strokeColor;
+
+                    for (var i=0, ilen=this.pathObj.path.length; i<ilen; i++) {
+                        regExp = this.pathObj.path[i].match(/(^.*){([^}]*)}(.*$)/);
+                        if (regExp) {
+                            expr = regExp[2];
+                            f = window.Function('"use strict"; return function(parseObj, strokeWidth){return (' + expr + ')}')();
+                            exprEval = f(this.parseObj, strokeWidth);
+                            this.pathObj.path[i] = regExp[1] + exprEval + regExp[3];
+                        }
+                    }
+                    this.svgPath.setAttribute("d", "m 0 0 " + this.pathObj.path.join(" "));
+                }
+            }
+            ret.push({elem: svg, callback: callback})
+        }
+        return ret;
     }
 
     function setAlignClasses(parseObj, elem, coord) {
@@ -660,6 +695,16 @@
         }
 
         return parsedObjList;
+    }
+
+    function copyParseObj(parseObj) {
+        return {
+            config:  {...parseObj.config},
+            m:       [...parseObj.m],
+            width:   parseObj.width,
+            height:  parseObj.height,
+            exclude: [...parseObj.exclude]
+        }
     }
 
     function main() {
