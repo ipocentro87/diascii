@@ -417,6 +417,8 @@
             else if (from) {
                 if (p.center == ">" && checkLeft) {
                     pathObj.points[pathObj.points.length-1].jump = false;
+                    // TODO Go backward to support big strokes
+                    pathObj.path.push("h -{Math.max(0.00001, strokeWidth - parseObj.config.scaleX)}");
                     pathObj.path.push("h {Math.max(0.00001, parseObj.config.scaleX - strokeWidth)}");
                     return [pathObj];
                 }
