@@ -284,7 +284,7 @@
                 go = theresBottomJump ? "bottom-jump" : "bottom";
             }
             else if ((p.center == "." && checkBottom && goRight)
-                     || (p.center == "." && checkLeft   && goRight)) {
+                     || (p.center == "." && checkLeft   && goRight && from == null)) {
                 // .>
                 // |
                 if (from == null)
@@ -299,7 +299,7 @@
                 go = theresRightJump ? "right-jump" : "right";
             }
             else if ((p.center == "." && checkBottom && goLeft)
-                     || (p.center == "." && checkRight  && goLeft)) {
+                     || (p.center == "." && checkRight  && goLeft && from == null)) {
                 // <.
                 //  |
                 if (from == null)
@@ -338,7 +338,7 @@
                 go = theresTopJump ? "top-jump" : "top";
             }
             else if ((p.center == "'" && checkTop   && goLeft)
-                     || (p.center == "'" && checkRight && goLeft)) {
+                     || (p.center == "'" && checkRight && goLeft && from == null)) {
                 if (from == null)
                     pathObj.path.push("m " + x(0.5) + " " + y(-0.5));
                 //   |
@@ -353,7 +353,7 @@
                 go = theresLeftJump ? "left-jump" : "left";
             }
             else if ((p.center == "'" && checkTop  && goRight)
-                     || (p.center == "'" && checkLeft && goRight)) {
+                     || (p.center == "'" && checkLeft && goRight && from == null)) {
                 // |
                 // '->
                 if (from == null)
