@@ -138,7 +138,6 @@
             if (p.center == "+") {
                 var substituteChars = ".-'|";
                 var retList = [];
-                if (r == 2 && c == 3) debugger;
                 for (var i=0, ilen=substituteChars.length; i<ilen; i++) {
                     var parseObjCopy = copyParseObj(parseObj);
                     var pathObjCopy =  copyPathObj(pathObj);
