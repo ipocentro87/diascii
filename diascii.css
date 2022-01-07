@@ -67,7 +67,7 @@ diascii div.DIASCII_BOX span.DIASCII_ALIGN_CENTERISH {
     left:50%!important;
 }
 
-diascii div.DIASCII_BOX span.DIASCII_ALIGN_RIGHT {
+diascii div.DIASCII_BOX span.DIASCII_ALIGN_RIGHT:not(.DIASCII_ALIGN_CENTERISH) {
     right:-5px!important;
     left:unset!important;
     width:unset!important;
