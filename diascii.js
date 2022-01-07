@@ -729,6 +729,14 @@
             var m = elem.textContent.split("\n");
             elem.textContent = "";
             var height = m.length;
+            var trimSpacesIndex = getWidth(m);
+            for (var r=0; r<height; r++) {
+                trimSpacesIndex = Math.min(trimSpacesIndex, m[r].search(/\S|$/));
+            }
+            for (var r=0; r<height; r++) {
+                m[r] = m[r].slice(trimSpacesIndex);
+            }
+
             var width  = getWidth(m);
 
             var parseObj = {
