@@ -708,6 +708,16 @@
         }
     }
 
+    function resize(elem) {
+        return function() {
+            scale = Math.min(1, elem.parentElement.offsetWidth / elem.origWidth);
+            newWidth  = elem.origWidth  * scale;
+            newHeight = elem.origHeight * scale;
+            elem.style.transform = "scale(" + scale.toString() + ")";
+            elem.style.transformOrigin = "left";
+        }
+    }
+
     function main() {
         var elems = document.getElementsByTagName("diascii");
         for (var i=0, ilen=elems.length; i<ilen; i++) {
@@ -731,6 +741,13 @@
 
             elem.style.width  = getX(parseObj, width)  + "px";
             elem.style.height = getY(parseObj, height) + "px";
+
+            elem.origWidth  = parseInt(elem.style.width);
+            elem.origHeight = parseInt(elem.style.height);
+
+            resizeCallback = resize(elem);
+            window.addEventListener('resize', resizeCallback);
+            window.addEventListener('load',   resizeCallback);
 
             var parsedObjList = parse(parseObj);
             for (var j=0, jlen=parsedObjList.length; j<jlen; j++) {
