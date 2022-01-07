@@ -417,22 +417,22 @@
             else if (from) {
                 if (p.center == ">" && checkLeft) {
                     pathObj.points[pathObj.points.length-1].jump = false;
-                    pathObj.path.push("h {Math.max(0, parseObj.config.scaleX - strokeWidth)}");
+                    pathObj.path.push("h {Math.max(0.00001, parseObj.config.scaleX - strokeWidth)}");
                     return [pathObj];
                 }
                 else if (p.center == "<" && checkRight) {
                     pathObj.points[pathObj.points.length-1].jump = false;
-                    pathObj.path.push("h -{Math.max(0, parseObj.config.scaleX - strokeWidth)}")
+                    pathObj.path.push("h -{Math.max(0.00001, parseObj.config.scaleX - strokeWidth)}")
                     return [pathObj];
                 }
                 else if (p.center == "^" && checkBottom) {
                     pathObj.points[pathObj.points.length-1].jump = false;
-                    pathObj.path.push("v -{Math.max(0, parseObj.config.scaleY - strokeWidth)}");
+                    pathObj.path.push("v -{Math.max(0.00001, parseObj.config.scaleY - strokeWidth)}");
                     return [pathObj];
                 }
                 else if (p.center == "v" && checkTop) {
                     pathObj.points[pathObj.points.length-1].jump = false;
-                    pathObj.path.push("v {Math.max(0, parseObj.config.scaleY - strokeWidth)}");
+                    pathObj.path.push("v {Math.max(0.00001, parseObj.config.scaleY - strokeWidth)}");
                     return [pathObj];
                 }
             }
