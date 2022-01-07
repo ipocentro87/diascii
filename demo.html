@@ -186,6 +186,64 @@ a ---> A -.      .-> x -+-> X
 b -+-> C -'      '-> z ---> Z
       </diascii>
 
+      <p>Arrow style can be changed through CSS...</p>
+      <style>
+        diascii#arrows-4 path {
+            stroke-width:5px;
+            stroke: var(--color-blue-dianne);
+        }
+      </style>
+      <diascii id="arrows-4">
+      A -+-> B
+         '-+---> C
+   D <-----|-----'
+    E <----+
+           '--> F
+      </diascii>
+      <p>Yet another example of CSS customisation:</p>
+      <style>
+        diascii#arrow-box path {
+            stroke-width:10px;
+            stroke: var(--color-blue-dianne);
+        }
+        diascii#arrow-box div.DIASCII_BOX span {
+            font-weight: 600;
+            font-size: 130%;
+            text-transform: uppercase;
+            color:white;
+        }
+
+      </style>
+      <diascii id="arrow-box">
+             .-----.
+input ------>|  A  |------> output
+         .-->|     |---.
+         |   '-----'   |
+         |    .---.    |
+         '----| B |<---'
+              '---'
+      </diascii>
+      <p>Big arrow test:</p>
+      <style>
+        diascii#big-arrow path {
+            stroke-width:20px;
+            stroke: var(--color-blue-dianne);
+        }
+        diascii#big-arrow div.DIASCII_BOX span {
+            font-weight: 700;
+            font-size: 170%;
+            text-transform: uppercase;
+            color:white;
+        }
+
+      </style>
+      <diascii id="big-arrow">
+      .---------.        .---------.
+      |         |        |         |
+      |   EL1   |------->|   EL2   |
+      |         |        |         |
+      '---------'        '---------'
+      </diascii>
 <!--     <h3>First example</h3> -->
 
 <!--     <diascii> -->
