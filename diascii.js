@@ -53,7 +53,7 @@
                              "+|", "|+", "+'", "+v",
                              ".+", "^+"],
             patternTBJump: ["-|", "-'",
-                            ".-", "|-"],
+                            ".-", "|-"]
         }
     };
 
@@ -85,9 +85,10 @@
     function loadConfig(elem) {
         var style = window.getComputedStyle(elem, null);
         return {
-            scaleX:        parseInt(style.getPropertyValue("--diascii-scale-x"), 10),
-            scaleY:        parseInt(style.getPropertyValue("--diascii-scale-y"), 10),
-            scaleArrowGap: parseInt(style.getPropertyValue("--diascii-scale-arrow-gap"), 10)
+            scaleX:         parseInt(style.getPropertyValue("--diascii-scale-x"), 10),
+            scaleY:         parseInt(style.getPropertyValue("--diascii-scale-y"), 10),
+            scaleArrowGap:  parseInt(style.getPropertyValue("--diascii-scale-arrow-gap"), 10),
+            minArrowHead:   parseInt(style.getPropertyValue("--diascii-min-arrow-head"), 10)
         }
     }
 
@@ -467,24 +468,51 @@
             svg.appendChild(svgDefs);
 
             var markerID = "diascii_arrow_id" + getID().toString();
+            svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
+            svg.appendChild(svgPath);
 
             var svgMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
             svgMarker.setAttribute("id", markerID);
-            svgMarker.setAttribute("markerWidth",  "1");
-            svgMarker.setAttribute("markerHeight", "2");
-            svgMarker.setAttribute("refX", "0");
-            svgMarker.setAttribute("refY", "1");
-            svgMarker.setAttribute("orient", "auto");
 
-            var svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-            svgPolygon.setAttribute("points", "0,0 1,1 0,2");
-            svgMarker.appendChild(svgPolygon);
+            var pathLen = pathObjList[i].points.length;
+
+            var pathBackward = 0;
+            if (pathLen > 1) {
+                pathBackward = pathObjList[i].points[pathLen-1].c < pathObjList[i].points[pathLen-2].c;
+            }
+
+            function makeArrowEndpoint(_svgMarker, _svgPath, _parseObj, _pathBackward) {
+                return function() {
+                    var polygonCoeff = 1;
+                    var refX = 0;
+                    var markerWidth = window.getComputedStyle(_svgPath)['stroke-width'];
+                    var re_match = markerWidth.match(/^\-?(\d+\.?\d*)px$/);
+                    if (re_match) {
+                        markerWidth = parseFloat(re_match[1]);
+                    } else {
+                        console.log(markerWidth);
+                        console.log("Error: stroke-width cannot be computed!");
+                    }
+
+                    if (markerWidth < _parseObj.config.minArrowHead) {
+                        polygonCoeff = _parseObj.config.minArrowHead/markerWidth;
+                        refX = pathBackward * polygonCoeff;
+                    }
+
+                    _svgMarker.setAttribute("markerWidth",  polygonCoeff);
+                    _svgMarker.setAttribute("markerHeight", 2*polygonCoeff);
+                    _svgMarker.setAttribute("refX", refX);
+                    _svgMarker.setAttribute("refY", polygonCoeff);
+                    _svgMarker.setAttribute("orient", "auto");
+                    var svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                    svgPolygon.setAttribute("points", "0,0 " + [polygonCoeff,polygonCoeff].join(',') + " " + [0,2*polygonCoeff].join(','));
+                    _svgMarker.appendChild(svgPolygon);
+                }
+            }
+
+            svg.addEventListener("load", makeArrowEndpoint(svgMarker, svgPath, parseObj, pathBackward));
             svgDefs.appendChild(svgMarker);
-
-            svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
-
-            svg.appendChild(svgPath);
 
             callback = {
                 parseObj: parseObj,

@@ -6,7 +6,8 @@ diascii {
     --diascii-scale-y: 22;
     /* Scale the gap between two crossing arrows that do not intersect */
     --diascii-scale-arrow-gap: 2;
-
+    /* Minimal arrow head size, in pixels */
+    --diascii-min-arrow-head: 5;
 
     position: relative;
     display: block;
