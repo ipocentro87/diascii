@@ -247,7 +247,6 @@ input ------>|  A  |------> output
       </diascii>
 
     <h3>First example</h3>
-
       <style>
       diascii .DIASCII_BOX {
           background-color: transparent;
@@ -256,6 +255,8 @@ input ------>|  A  |------> output
       }
       diascii {
           color: black;
+          --diascii-overlay: rect("#overlay1", "#cntrl", ".pluto")
+                             hrepl("$", ".hflop");
       }
       diascii svg.DIASCII_ARROW path {
           stroke: black;
@@ -328,6 +329,26 @@ start -.   ob|st|a|cle| .-'
 | --|---|---> |
 |   | '-'     |
 '-------------'
+
+      </diascii>
+
+      <diascii>
+
+
+.-------------. | .-------------------------.
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+|             | | |                         |
+'-------------' | '-------------------------'
 
       </diascii>
     </div>

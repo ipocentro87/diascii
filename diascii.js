@@ -126,7 +126,7 @@
             return copiedPathObj;
         }
 
-        function getArrows(parseObj, pathObj, from=null)
+        function getArrows(parseObj, pathObj, from=null, rev=false)
         {
             var arrows = [];
             var lastPoint = pathObj.points[pathObj.points.length-1];
@@ -145,7 +145,7 @@
                     parseObjCopy.m[r] = parseObjCopy.m[r].substring(0, c)
                                       + substituteChars[i]
                                       + parseObjCopy.m[r].substring(c+1);
-                    ret = getArrows(parseObjCopy, pathObjCopy, from);
+                    ret = getArrows(parseObjCopy, pathObjCopy, from, rev);
                     if (ret.length > 0) {
                         retList.push.apply(retList, ret);
                     }
@@ -276,11 +276,15 @@
                 }
                 go = theresBottomJump ? "bottom-jump" : "bottom";
             }
-            else if (p.center == "." && checkTop && goBottom) {
+            else if (  (p.center == "." && checkTop && goBottom)
+                    || (p.center == "^" && goBottom && from == null)) {
                 // .
                 // |
                 if (from == null)
                     pathObj.path.push("m " + x(0.5) + " 0");
+                if (p.center == "^") {
+                    pathObj.start = "arrow";
+                }
                 pathObj.path.push("v " + y(0.5));
                 go = theresBottomJump ? "bottom-jump" : "bottom";
             }
@@ -412,7 +416,7 @@
                 }
 
                 if (go) {
-                    return getArrows(parseObj, pathObj, from=fromRet);
+                    return getArrows(parseObj, pathObj, from=fromRet, rev=rev);
                 }
             }
             else if (from) {
@@ -421,22 +425,55 @@
                     // TODO Go backward to support big strokes
                     pathObj.path.push("h -{Math.max(0.00001, strokeWidth - parseObj.config.scaleX)}");
                     pathObj.path.push("h {Math.max(0.00001, parseObj.config.scaleX - strokeWidth)}");
+                    pathObj.end = "arrow";
+                            console.log([r, c, pathObj]);
                     return [pathObj];
                 }
                 else if (p.center == "<" && checkRight) {
                     pathObj.points[pathObj.points.length-1].jump = false;
                     pathObj.path.push("h -{Math.max(0.00001, parseObj.config.scaleX - strokeWidth)}")
+                    pathObj.end = "arrow";
+                            console.log([r, c, pathObj]);
                     return [pathObj];
                 }
                 else if (p.center == "^" && checkBottom) {
                     pathObj.points[pathObj.points.length-1].jump = false;
                     pathObj.path.push("v -{Math.max(0.00001, parseObj.config.scaleY - strokeWidth)}");
+                    pathObj.end = "arrow";
+                            console.log([r, c, pathObj]);
                     return [pathObj];
                 }
                 else if (p.center == "v" && checkTop) {
                     pathObj.points[pathObj.points.length-1].jump = false;
                     pathObj.path.push("v {Math.max(0.00001, parseObj.config.scaleY - strokeWidth)}");
+                    pathObj.end = "arrow";
+                            console.log([r, c, pathObj]);
                     return [pathObj];
+                }
+                else if (draw == false) {
+                    var pathObj_rev = {points: [{r:r, c:c, jump:null}],
+                                       start:  null,
+                                       end:    null,
+                                       path:   []};
+
+                    pathObj.points[pathObj.points.length-1].jump = false;
+                    if (p.center == "|") {
+                        pathObj.path.push("v " + y(1));
+                        var pathObjList_rev = [];
+                        if (rev == false) {
+                            pathObjList_rev = getArrows(parseObj, pathObj_rev, from=null, rev=true);
+                        }
+                        if (pathObjList_rev.length > 0 && pathObjList_rev[0].points.length > pathObj.points.length) {
+                            return [];
+                        } else {
+                            console.log([r, c, pathObj]);
+                            return [pathObj];
+                        }
+                    }
+ // else if (p.center == "'") {
+ //                        pathObj.path.push("v " + y(0.5));
+ //                        return [pathObj];
+ //                    }
                 }
             }
             return [];
@@ -444,9 +481,11 @@
 
 
         var pathObj = {points: [{r:point.r, c:point.c, jump:null}],
+                       start:  null,
+                       end:    null,
                        path:   []};
 
-        var pathObjList = getArrows(parseObj, pathObj, from=null);
+        var pathObjList = getArrows(parseObj, pathObj);
 
         var ret = [];
         for (var i=0, ilen=pathObjList.length; i<ilen; i++) {
@@ -469,7 +508,12 @@
 
             var markerID = "diascii_arrow_id" + getID().toString();
             svgPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
+            if (pathObjList[i].start == "arrow") {
+                svgPath.setAttribute("marker-start", "url(#" + markerID + ")");
+            }
+            if (pathObjList[i].end == "arrow") {
+                svgPath.setAttribute("marker-end", "url(#" + markerID + ")");
+            }
             svg.appendChild(svgPath);
 
             var svgMarker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
@@ -504,7 +548,7 @@
                     _svgMarker.setAttribute("markerHeight", 2*polygonCoeff);
                     _svgMarker.setAttribute("refX", refX);
                     _svgMarker.setAttribute("refY", polygonCoeff);
-                    _svgMarker.setAttribute("orient", "auto");
+                    _svgMarker.setAttribute("orient", "auto-start-reverse");
                     var svgPolygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
                     svgPolygon.setAttribute("points", "0,0 " + [polygonCoeff,polygonCoeff].join(',') + " " + [0,2*polygonCoeff].join(','));
                     _svgMarker.appendChild(svgPolygon);
@@ -535,7 +579,12 @@
                             this.pathObj.path[i] = regExp[1] + exprEval + regExp[3];
                         }
                     }
-                    this.svgPath.setAttribute("d", "m 0 0 " + this.pathObj.path.join(" "));
+
+                    var d = this.pathObj.path.join(" ");
+                    if (this.pathObj.path[0][0] != "m") {
+                        d = "M 0 0 " + d;
+                    }
+                    this.svgPath.setAttribute("d", d);
                 }
             }
             ret.push({elem: svg, callback: callback})
@@ -750,6 +799,7 @@
         var elems = document.getElementsByTagName("diascii");
         for (var i=0, ilen=elems.length; i<ilen; i++) {
             var elem = elems[i];
+            console.log("id: " + elem.id);
 
             // Delete the first and the last new lines (if any)
             elem.textContent = elem.textContent.replace(/(^\n)|(\n *$)/g,"");
